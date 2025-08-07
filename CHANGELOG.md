@@ -1,8 +1,6 @@
 # kilo-code
 
-## 4.78.0
-
-### Minor Changes
+## [v4.78.0]
 
 - [#1836](https://github.com/Kilo-Org/kilocode/pull/1836) [`1cc5edd`](https://github.com/Kilo-Org/kilocode/commit/1cc5edd003434fcd3d1fd66e652099165b077ac6) Thanks [@hassoncs](https://github.com/hassoncs)! - The task timeline now scrolls horizontally using the mouse wheel (thanks @ABODFTW!)
 
