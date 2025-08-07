@@ -4,17 +4,16 @@ import * as path from "path"
 import { spawnSync } from "child_process"
 import { shouldExcludeLockFile } from "./exclusionUtils"
 import { RooIgnoreController } from "../../core/ignore/RooIgnoreController"
+import { chunkDiffByFiles, estimateTokenCount, getContextWindow } from "../../utils/commit-token-utils"
+import { t } from "../../i18n"
+import { CommitContext } from "./types"
 
 export interface GitChange {
 	filePath: string
 	status: string
 }
 
-export interface GitOptions {
-	staged: boolean
-}
-
-export interface GitProgressOptions extends GitOptions {
+export interface GitProgressOptions {
 	onProgress?: (percentage: number) => void
 }
 
@@ -74,7 +73,7 @@ export class GitExtensionService {
 	 */
 	public async gatherChanges(options: GitProgressOptions): Promise<GitChange[]> {
 		try {
-			const statusOutput = this.getStatus(options)
+			const statusOutput = this.getStatus()
 			if (!statusOutput.trim()) {
 				return []
 			}
@@ -97,8 +96,7 @@ export class GitExtensionService {
 
 			return changes
 		} catch (error) {
-			const changeType = options.staged ? "staged" : "unstaged"
-			console.error(`Error gathering ${changeType} changes:`, error)
+			console.error(`Error gathering changes:`, error)
 			return []
 		}
 	}
@@ -145,12 +143,12 @@ export class GitExtensionService {
 		}
 	}
 
-	private async getDiffForChanges(options: GitProgressOptions): Promise<string> {
-		const { staged, onProgress } = options
+	private async getDiffForChanges(options?: GitProgressOptions): Promise<string> {
+		const { onProgress } = options || {}
 		try {
 			const diffs: string[] = []
-			const args = staged ? ["diff", "--name-only", "--cached"] : ["diff", "--name-only"]
-			const files = this.spawnGitWithArgs(args)
+			// Just get ALL changes - no staged/unstaged distinction
+			const files = this.spawnGitWithArgs(["diff", "--name-only"])
 				.split("\n")
 				.map((line) => line.trim())
 				.filter((line) => line.length > 0)
@@ -158,7 +156,7 @@ export class GitExtensionService {
 			let processedFiles = 0
 			for (const filePath of files) {
 				if (this.ignoreController?.validateAccess(filePath) && !shouldExcludeLockFile(filePath)) {
-					const diff = this.getGitDiff(filePath, { staged }).trim()
+					const diff = this.getGitDiff(filePath).trim()
 					diffs.push(diff)
 				}
 
@@ -171,28 +169,21 @@ export class GitExtensionService {
 
 			return diffs.join("\n")
 		} catch (error) {
-			const changeType = staged ? "staged" : "unstaged"
-			console.error(`Error generating ${changeType} diff:`, error)
+			console.error("Error generating diff:", error)
 			return ""
 		}
 	}
 
-	private getStatus(options: GitOptions): string {
-		const { staged } = options
-		const args = staged ? ["diff", "--name-status", "--cached"] : ["diff", "--name-status"]
-		return this.spawnGitWithArgs(args)
+	private getStatus(): string {
+		return this.spawnGitWithArgs(["diff", "--name-status"])
 	}
 
-	private getSummary(options: GitOptions): string {
-		const { staged } = options
-		const args = staged ? ["diff", "--cached", "--stat"] : ["diff", "--stat"]
-		return this.spawnGitWithArgs(args)
+	private getSummary(): string {
+		return this.spawnGitWithArgs(["diff", "--stat"])
 	}
 
-	private getGitDiff(filePath: string, options: GitOptions): string {
-		const { staged } = options
-		const args = staged ? ["diff", "--cached", "--", filePath] : ["diff", "--", filePath]
-		return this.spawnGitWithArgs(args)
+	private getGitDiff(filePath: string): string {
+		return this.spawnGitWithArgs(["diff", "--", filePath])
 	}
 
 	private getCurrentBranch(): string {
@@ -203,61 +194,70 @@ export class GitExtensionService {
 		return this.spawnGitWithArgs(["log", "--oneline", `-${count}`])
 	}
 
-	/**
-	 * Gets all context needed for commit message generation
-	 */
-	public async getCommitContext(changes: GitChange[], options: GitProgressOptions): Promise<string> {
-		const { staged } = options
+	public async getCommitContext(options?: GitProgressOptions): Promise<CommitContext[]> {
 		try {
-			// Start building the context with the required sections
-			let context = "## Git Context for Commit Message Generation\n\n"
+			const diff = await this.getDiffForChanges(options)
 
-			// Add full diff - essential for understanding what changed
-			try {
-				const diff = await this.getDiffForChanges(options)
-				const changeType = staged ? "Staged" : "Unstaged"
-				context += `### Full Diff of ${changeType} Changes\n\`\`\`diff\n` + diff + "\n```\n\n"
-			} catch (error) {
-				const changeType = staged ? "Staged" : "Unstaged"
-				context += `### Full Diff of ${changeType} Changes\n\`\`\`diff\n(No diff available)\n\`\`\`\n\n`
+			if (await this.shouldChunk(diff)) {
+				return await this.createChunkedContexts(diff, options)
 			}
 
-			// Add statistical summary - helpful for quick overview
-			try {
-				const summary = this.getSummary(options)
-				context += "### Statistical Summary\n```\n" + summary + "\n```\n\n"
-			} catch (error) {
-				context += "### Statistical Summary\n```\n(No summary available)\n```\n\n"
-			}
-
-			// Add contextual information
-			context += "### Repository Context\n\n"
-
-			// Show current branch
-			try {
-				const currentBranch = this.getCurrentBranch()
-				if (currentBranch) {
-					context += "**Current branch:** `" + currentBranch.trim() + "`\n\n"
-				}
-			} catch (error) {
-				// Skip if not available
-			}
-
-			// Show recent commits for context
-			try {
-				const recentCommits = this.getRecentCommits()
-				if (recentCommits) {
-					context += "**Recent commits:**\n```\n" + recentCommits + "\n```\n"
-				}
-			} catch (error) {
-				// Skip if not available
-			}
-
-			return context
+			return [
+				{
+					diff,
+					summary: this.getSummary(),
+					branch: this.getCurrentBranch()?.trim(),
+					recentCommits: this.getRecentCommits()
+						?.split("\n")
+						.filter((c) => c.trim()),
+				},
+			]
 		} catch (error) {
 			console.error("Error generating commit context:", error)
-			return "## Error generating commit context\n\nUnable to gather complete context for commit message generation."
+			return [
+				{
+					diff: "",
+					summary: "Error generating context",
+				},
+			]
 		}
+	}
+
+	private async shouldChunk(diff: string): Promise<boolean> {
+		const tokens = await estimateTokenCount(diff)
+		const contextWindow = getContextWindow()
+		const maxTokens = Math.floor(contextWindow * 0.4)
+		return tokens > maxTokens
+	}
+
+	private async createChunkedContexts(diff: string, options?: GitProgressOptions): Promise<CommitContext[]> {
+		const chunkResult = await chunkDiffByFiles(diff)
+
+		if (chunkResult.exceedsLimit) {
+			return [
+				{
+					diff,
+					summary: this.getSummary(),
+					branch: this.getCurrentBranch()?.trim(),
+					recentCommits: this.getRecentCommits()
+						?.split("\n")
+						.filter((c) => c.trim()),
+				},
+			]
+		}
+
+		// Return array of contexts, one per chunk
+		return chunkResult.chunks.map((chunk, index) => ({
+			diff: chunk,
+			summary: index === 0 ? this.getSummary() : undefined,
+			branch: this.getCurrentBranch()?.trim(),
+			recentCommits: this.getRecentCommits()
+				?.split("\n")
+				.filter((c) => c.trim()),
+			isChunked: true,
+			chunkIndex: index,
+			totalChunks: chunkResult.chunks.length,
+		}))
 	}
 
 	/**

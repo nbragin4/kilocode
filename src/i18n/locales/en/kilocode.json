@@ -49,7 +49,28 @@
 		"generationFailed": "Kilo: Failed to generate commit message: {{errorMessage}}",
 		"generatingFromUnstaged": "Kilo: Generating message using unstaged changes",
 		"activationFailed": "Kilo: Failed to activate message generator: {{error}}",
-		"providerRegistered": "Kilo: Commit message provider registered"
+		"providerRegistered": "Kilo: Commit message provider registered",
+		"analyzingChunks": "Analyzing chunks...",
+		"combining": "Combining results...",
+		"processingChunk": "Processing chunk {{current}} of {{total}}...",
+		"largeChangesetWarning": {
+			"title": "Large Changeset Detected",
+			"message": "This will require {{chunkCount}} AI calls and may take several minutes. This could be expensive depending on your provider.",
+			"continue": "Continue",
+			"cancel": "Cancel"
+		},
+		"tooManyChunks": {
+			"title": "Changeset Too Large",
+			"message": "This changeset would require {{chunkCount}} chunks (maximum: {{maxChunks}}). Please commit smaller changes or stage specific files.",
+			"ok": "OK"
+		},
+		"operationCancelled": "Operation cancelled by user",
+		"cancellable": {
+			"title": "Generating Commit Message",
+			"generating": "Generating commit message...",
+			"processingChunks": "Processing {{current}} of {{total}} chunks...",
+			"combining": "Combining chunk results..."
+		}
 	},
 	"ghost": {
 		"statusBar": {

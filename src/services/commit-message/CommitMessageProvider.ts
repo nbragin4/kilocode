@@ -3,7 +3,8 @@ import * as vscode from "vscode"
 import { ContextProxy } from "../../core/config/ContextProxy"
 import { ProviderSettingsManager } from "../../core/config/ProviderSettingsManager"
 import { singleCompletionHandler } from "../../utils/single-completion-handler"
-import { GitExtensionService, GitChange, GitProgressOptions, GitRepository } from "./GitExtensionService"
+import { GitExtensionService, GitRepository } from "./GitExtensionService"
+import { CommitContext } from "./types"
 import { supportPrompt } from "../../shared/support-prompt"
 import { t } from "../../i18n"
 import { addCustomInstructions } from "../../core/prompts/sections/custom-instructions"
@@ -59,31 +60,21 @@ export class CommitMessageProvider {
 		await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.SourceControl,
-				title: t("kilocode:commitMessage.generating"),
-				cancellable: false,
+				title: t("kilocode:commitMessage.cancellable.title"),
+				cancellable: true,
 			},
-			async (progress) => {
+			async (progress, cancellationToken) => {
 				try {
 					this.gitService.configureRepositoryContext(commitContext?.rootUri)
 
-					let staged = true
-					let changes = await this.gitService.gatherChanges({ staged })
-
+					const changes = await this.gitService.gatherChanges({})
 					if (changes.length === 0) {
-						staged = false
-						changes = await this.gitService.gatherChanges({ staged })
-						if (changes.length > 0) {
-							vscode.window.showInformationMessage(t("kilocode:commitMessage.generatingFromUnstaged"))
-						} else {
-							vscode.window.showInformationMessage(t("kilocode:commitMessage.noChanges"))
-							return
-						}
+						vscode.window.showInformationMessage(t("kilocode:commitMessage.noChanges"))
+						return
 					}
 
-					// Report initial progress after gathering changes (10% of total)
 					progress.report({ increment: 10, message: t("kilocode:commitMessage.generating") })
 
-					// Track progress for diff collection (70% of total progress)
 					let lastReportedProgress = 0
 					const onDiffProgress = (percentage: number) => {
 						const currentProgress = (percentage / 100) * 70
@@ -94,15 +85,17 @@ export class CommitMessageProvider {
 						}
 					}
 
-					const gitContextString = await this.gitService.getCommitContext(changes, {
-						staged,
+					const gitContext = await this.gitService.getCommitContext({
 						onProgress: onDiffProgress,
 					})
 
-					const generatedMessage = await this.callAIForCommitMessageWithProgress(gitContextString, progress)
+					const generatedMessage = await this.callAIForCommitMessageWithProgress(
+						gitContext,
+						progress,
+						cancellationToken,
+					)
 
-					// Store the current context and message for future reference
-					this.previousGitContext = gitContextString
+					this.previousGitContext = gitContext.map((ctx) => this.formatContextForAI(ctx)).join("\n---\n")
 					this.previousCommitMessage = generatedMessage
 					this.gitService.setCommitMessage(generatedMessage)
 					TelemetryService.instance.captureEvent(TelemetryEventName.COMMIT_MSG_GENERATED)
@@ -116,54 +109,123 @@ export class CommitMessageProvider {
 	}
 
 	private async callAIForCommitMessageWithProgress(
-		gitContextString: string,
+		gitContext: CommitContext[],
 		progress: vscode.Progress<{ increment?: number; message?: string }>,
+		cancellationToken?: vscode.CancellationToken,
 	): Promise<string> {
 		let totalProgressUsed = 0
-		const maxProgress = 20 // We have 20% reserved for AI processing
-		const maxIncrement = 1.0 // Start with bigger increments
-		const minIncrement = 0.05 // Minimum increment to keep progress moving
+		const maxProgress = 20
+		const maxIncrement = 1.0
+		const minIncrement = 0.05
 
-		// Start interval timer to update the progress while we wait for the reponse
-		// Use exponential decay: start with larger increments, decrease as we approach the limit
-		// Formula: increment = remainingProgress^2 * maxIncrement + minIncrement
 		const progressInterval = setInterval(() => {
-			const remainingProgress = (maxProgress - totalProgressUsed) / maxProgress // percentage (0 to 1)
+			const remainingProgress = (maxProgress - totalProgressUsed) / maxProgress
 
 			const incrementLimited = Math.max(
 				remainingProgress * remainingProgress * maxIncrement + minIncrement,
 				minIncrement,
 			)
 			const increment = Math.min(incrementLimited, maxProgress - totalProgressUsed)
-			progress.report({ increment: increment, message: t("kilocode:commitMessage.generating") })
+			progress.report({ increment, message: t("kilocode:commitMessage.generating") })
 			totalProgressUsed += increment
 		}, 100)
 
 		try {
-			const message = await this.callAIForCommitMessage(gitContextString)
+			if (cancellationToken?.isCancellationRequested) {
+				throw new Error(t("kilocode:commitMessage.operationCancelled"))
+			}
 
-			// Now, animate the bar to 100% to make it look nicer :)
+			const message = await this.processChunkedContext(gitContext, progress, cancellationToken)
+
 			for (let i = 0; i < maxProgress - totalProgressUsed; i++) {
 				progress.report({ increment: 1 })
 				await delay(25)
 			}
 			return message
 		} finally {
-			clearInterval(progressInterval) // Always clear when done
+			clearInterval(progressInterval)
 		}
+	}
+
+	private formatContextForAI(context: CommitContext): string {
+		let formatted = `## Git Context for Commit Message Generation\n\n`
+		formatted += `### Full Diff\n\`\`\`diff\n${context.diff}\n\`\`\`\n\n`
+
+		if (context.summary) {
+			formatted += `### Statistical Summary\n\`\`\`\n${context.summary}\n\`\`\`\n\n`
+		}
+
+		if (context.branch) {
+			formatted += `### Repository Context\n**Current branch:** \`${context.branch}\`\n`
+		}
+
+		if (context.recentCommits?.length) {
+			formatted += `**Recent commits:**\n\`\`\`\n${context.recentCommits.join("\n")}\n\`\`\`\n`
+		}
+
+		return formatted
+	}
+
+	/**
+	 * Processes git context using map-reduce pattern for multiple chunks or direct processing for single chunk
+	 */
+	private async processChunkedContext(
+		gitContexts: CommitContext[],
+		progress: vscode.Progress<{ increment?: number; message?: string }>,
+		cancellationToken?: vscode.CancellationToken,
+	): Promise<string> {
+		// For single context, process directly
+		if (gitContexts.length === 1) {
+			const formatted = this.formatContextForAI(gitContexts[0])
+			return await this.callAIForCommitMessage(formatted, cancellationToken)
+		}
+
+		// For multiple contexts, process each chunk
+		progress.report({ message: t("kilocode:commitMessage.analyzingChunks") })
+
+		const chunkSummaries: string[] = []
+		for (let i = 0; i < gitContexts.length; i++) {
+			progress.report({
+				message: t("kilocode:commitMessage.processingChunk", {
+					current: i + 1,
+					total: gitContexts.length,
+				}),
+			})
+
+			const formatted = this.formatContextForAI(gitContexts[i])
+			const chunkMessage = await this.callAIForCommitMessage(formatted)
+			chunkSummaries.push(`Chunk ${i + 1}: ${chunkMessage}`)
+		}
+
+		progress.report({ message: t("kilocode:commitMessage.combining") })
+
+		// Combine results
+		const combinedContext = `## Combined Analysis from Multiple Chunks
+
+The following commit message suggestions were generated from different parts of the changes:
+
+${chunkSummaries.join("\n\n")}
+
+## Instructions
+Generate a single, cohesive conventional commit message that best represents the overall changes.`
+
+		return await this.callAIForCommitMessage(combinedContext, cancellationToken)
 	}
 
 	/**
 	 * Calls the provider to generate a commit message based on the git context.
 	 */
-	private async callAIForCommitMessage(gitContextString: string): Promise<string> {
+	private async callAIForCommitMessage(
+		gitContextString: string,
+		cancellationToken?: vscode.CancellationToken,
+	): Promise<string> {
 		const contextProxy = ContextProxy.instance
 		const apiConfiguration = contextProxy.getProviderSettings()
 		const commitMessageApiConfigId = contextProxy.getValue("commitMessageApiConfigId")
 		const listApiConfigMeta = contextProxy.getValue("listApiConfigMeta") || []
-		const customSupportPrompts = contextProxy.getValue("customSupportPrompts") || {}
+		const customSupportPrompts =
+			(contextProxy.getValue("customSupportPrompts") as Record<string, string> | undefined) || {}
 
-		// Try to get commit message config first, fall back to current config.
 		let configToUse: ProviderSettings = apiConfiguration
 
 		if (
@@ -179,12 +241,15 @@ export class CommitMessageProvider {
 					configToUse = providerSettings
 				}
 			} catch (error) {
-				// Fall back to default configuration if profile doesn't exist
 				console.warn(`Failed to load commit message API config ${commitMessageApiConfigId}:`, error)
 			}
 		}
 
 		const prompt = await this.buildCommitMessagePrompt(gitContextString, customSupportPrompts)
+
+		if (cancellationToken?.isCancellationRequested) {
+			throw new Error(t("kilocode:commitMessage.operationCancelled"))
+		}
 
 		const response = await singleCompletionHandler(configToUse, prompt)
 
@@ -197,29 +262,20 @@ export class CommitMessageProvider {
 	 */
 	private async buildCommitMessagePrompt(
 		gitContextString: string,
-		customSupportPrompts: Record<string, any>,
+		customSupportPrompts: Record<string, string>,
 	): Promise<string> {
-		// Load custom instructions including rules
 		const workspacePath = getWorkspacePath()
 		const customInstructions = workspacePath
-			? await addCustomInstructions(
-					"", // no mode-specific instructions for commit
-					"", // no global custom instructions
-					workspacePath,
-					"commit", // mode for commit-specific rules
-					{
-						language: vscode.env.language,
-						localRulesToggleState: this.context.workspaceState.get("localRulesToggles"),
-						globalRulesToggleState: this.context.globalState.get("globalRulesToggles"),
-					},
-				)
+			? await addCustomInstructions("", "", workspacePath, "commit", {
+					language: vscode.env.language,
+					localRulesToggleState: this.context.workspaceState.get("localRulesToggles"),
+					globalRulesToggleState: this.context.globalState.get("globalRulesToggles"),
+				})
 			: ""
 
-		// Check if we should generate a different message than the previous one
 		const shouldGenerateDifferentMessage =
 			this.previousGitContext === gitContextString && this.previousCommitMessage !== null
 
-		// Create prompt with different message logic if needed
 		if (shouldGenerateDifferentMessage) {
 			const differentMessagePrefix = `# CRITICAL INSTRUCTION: GENERATE A COMPLETELY DIFFERENT COMMIT MESSAGE
 The user has requested a new commit message for the same changes.
@@ -263,19 +319,10 @@ FINAL REMINDER: Your message MUST be COMPLETELY DIFFERENT from the previous mess
 		}
 	}
 
-	/**
-	 * Extracts the commit message from the AI response.
-	 */
 	private extractCommitMessage(response: string): string {
-		// Clean up the response by removing any extra whitespace or formatting
 		const cleaned = response.trim()
-
-		// Remove any code block markers
 		const withoutCodeBlocks = cleaned.replace(/```[a-z]*\n|```/g, "")
-
-		// Remove any quotes or backticks that might wrap the message
 		const withoutQuotes = withoutCodeBlocks.replace(/^["'`]|["'`]$/g, "")
-
 		return withoutQuotes.trim()
 	}
 
