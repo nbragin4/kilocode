@@ -24,15 +24,17 @@ import {
 	mistralDefaultModelId,
 	xaiDefaultModelId,
 	// kilocode_change start
-	zaiDefaultModelId,
 	bigModelDefaultModelId,
 	// kilocode_change end
 	groqDefaultModelId,
+	cerebrasDefaultModelId,
 	chutesDefaultModelId,
 	bedrockDefaultModelId,
 	vertexDefaultModelId,
 	kilocodeDefaultModelId,
 	sambaNovaDefaultModelId,
+	internationalZAiDefaultModelId,
+	mainlandZAiDefaultModelId,
 	fireworksDefaultModelId,
 } from "@roo-code/types"
 
@@ -63,6 +65,7 @@ import {
 import {
 	Anthropic,
 	Bedrock,
+	Cerebras,
 	Chutes,
 	ClaudeCode,
 	DeepSeek,
@@ -87,11 +90,10 @@ import {
 	VSCodeLM,
 	XAI,
 	// kilocode_change start
-	ZAI,
 	BigModel,
-	Cerebras,
 	VirtualQuotaFallbackProvider,
 	// kilocode_change end
+	ZAi,
 	Fireworks,
 } from "./providers"
 
@@ -101,6 +103,7 @@ import { inputEventTransform, noTransform } from "./transforms"
 import { ModelInfoView } from "./ModelInfoView"
 import { ApiErrorMessage } from "./ApiErrorMessage"
 import { ThinkingBudget } from "./ThinkingBudget"
+import { Verbosity } from "./Verbosity"
 import { DiffSettingsControl } from "./DiffSettingsControl"
 import { TodoListSettingsControl } from "./TodoListSettingsControl"
 import { TemperatureControl } from "./TemperatureControl"
@@ -110,7 +113,6 @@ import { BedrockCustomArn } from "./providers/BedrockCustomArn"
 import { KiloCode } from "../kilocode/settings/providers/KiloCode" // kilocode_change
 import { KiloCodeAdvanced } from "../kilocode/settings/providers/KiloCodeAdvanced" // kilocode_change
 import { buildDocLink } from "@src/utils/docLinks"
-import { cerebrasDefaultModelId } from "@roo/api"
 
 export interface ApiOptionsProps {
 	uriScheme: string | undefined
@@ -326,6 +328,7 @@ const ApiOptions = ({
 				requesty: { field: "requestyModelId", default: requestyDefaultModelId },
 				litellm: { field: "litellmModelId", default: litellmDefaultModelId },
 				anthropic: { field: "apiModelId", default: anthropicDefaultModelId },
+				cerebras: { field: "apiModelId", default: cerebrasDefaultModelId },
 				"claude-code": { field: "apiModelId", default: claudeCodeDefaultModelId },
 				"openai-native": { field: "apiModelId", default: openAiNativeDefaultModelId },
 				gemini: { field: "apiModelId", default: geminiDefaultModelId },
@@ -340,16 +343,21 @@ const ApiOptions = ({
 				bedrock: { field: "apiModelId", default: bedrockDefaultModelId },
 				vertex: { field: "apiModelId", default: vertexDefaultModelId },
 				sambanova: { field: "apiModelId", default: sambaNovaDefaultModelId },
+				zai: {
+					field: "apiModelId",
+					default:
+						apiConfiguration.zaiApiLine === "china"
+							? mainlandZAiDefaultModelId
+							: internationalZAiDefaultModelId,
+				},
+				fireworks: { field: "apiModelId", default: fireworksDefaultModelId },
 				openai: { field: "openAiModelId" },
 				ollama: { field: "ollamaModelId" },
 				lmstudio: { field: "lmStudioModelId" },
 				// kilocode_change start
-				zai: { field: "apiModelId", default: zaiDefaultModelId },
 				bigmodel: { field: "apiModelId", default: bigModelDefaultModelId },
 				kilocode: { field: "kilocodeModel", default: kilocodeDefaultModelId },
-				cerebras: { field: "cerebrasModelId", default: cerebrasDefaultModelId },
 				// kilocode_change end
-				fireworks: { field: "apiModelId", default: fireworksDefaultModelId },
 			}
 
 			const config = PROVIDER_MODEL_CONFIG[value]
@@ -454,10 +462,6 @@ const ApiOptions = ({
 				/>
 			)}
 			{/* kilocode_change end */}
-
-			{selectedProvider === "fireworks" && (
-				<Fireworks apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
-			)}
 
 			{selectedProvider === "openrouter" && (
 				<OpenRouter
@@ -589,22 +593,20 @@ const ApiOptions = ({
 				<HuggingFace apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
 			)}
 
+			{selectedProvider === "cerebras" && (
+				<Cerebras apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
+			)}
+
 			{selectedProvider === "chutes" && (
 				<Chutes apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
 			)}
 
 			{/* kilocode_change start */}
-			{selectedProvider === "zai" && (
-				<ZAI apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
-			)}
 
 			{selectedProvider === "bigmodel" && (
 				<BigModel apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
 			)}
 
-			{selectedProvider === "cerebras" && (
-				<Cerebras apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
-			)}
 			{selectedProvider === "virtual-quota-fallback" && (
 				<VirtualQuotaFallbackProvider
 					apiConfiguration={apiConfiguration}
@@ -626,6 +628,10 @@ const ApiOptions = ({
 				<SambaNova apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
 			)}
 
+			{selectedProvider === "zai" && (
+				<ZAi apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
+			)}
+
 			{selectedProvider === "human-relay" && (
 				<>
 					<div className="text-sm text-vscode-descriptionForeground">
@@ -635,6 +641,10 @@ const ApiOptions = ({
 						{t("settings:providers.humanRelay.instructions")}
 					</div>
 				</>
+			)}
+
+			{selectedProvider === "fireworks" && (
+				<Fireworks apiConfiguration={apiConfiguration} setApiConfigurationField={setApiConfigurationField} />
 			)}
 
 			{selectedProviderModels.length > 0 && (
@@ -686,6 +696,12 @@ const ApiOptions = ({
 
 			<ThinkingBudget
 				key={`${selectedProvider}-${selectedModelId}`}
+				apiConfiguration={apiConfiguration}
+				setApiConfigurationField={setApiConfigurationField}
+				modelInfo={selectedModelInfo}
+			/>
+
+			<Verbosity
 				apiConfiguration={apiConfiguration}
 				setApiConfigurationField={setApiConfigurationField}
 				modelInfo={selectedModelInfo}
