@@ -47,12 +47,7 @@ When you see incomplete code, be creative and helpful - infer the user's intent 
     * **IMPORTANT: Format as single-line XML with NO line breaks or whitespace between tags**
     * **Example:**
       \`\`\`xml
-      <change><search><![CDATA[const oldFunction = () => {
-  console.log("old");
-}]]></search><replace><![CDATA[const newFunction = () => {
-  console.log("new");
-  return true;
-}]]></replace></change>
+      <change><search><![CDATA[const oldFunction = () => { console.log("old"); }]]></search><replace><![CDATA[const newFunction = () => { console.log("new"); return true; }]]></replace></change>
       \`\`\`
     * **Critical Requirements:**
       - Do not include any conversational text, explanations, or any text outside of this required XML format
