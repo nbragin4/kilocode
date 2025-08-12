@@ -17,16 +17,16 @@ When you see incomplete code, be creative and helpful - infer the user's intent 
 
 2. **Recognize User Intent:** The user's changes are intentional. If they rename a variable, they want that rename propagated. If they delete code, they want related code cleaned up. **Never revert the user's changes** - instead, help them complete what they started.
 
-3.  **Analyze Full Context:** Scrutinize all provided information:
+3. **Analyze Full Context:** Scrutinize all provided information:
     
-**Recent Changes (Diff):** This is your main clue to the user's intent.
-	
+	**Recent Changes (Diff):** This is your main clue to the user's intent.
+		
 	**Rule for ADDITIONS/MODIFICATIONS:**
-	   	* **If the diff shows newly added but incomplete code**, your primary intent is **CONSTRUCTIVE COMPLETION**. Be creative and helpful!
-	   	* **For incomplete functions/variables** (e.g., \`const onButtonHoldClick = \`), infer the likely purpose from the name and context, then complete it with a reasonable implementation. For example, "onButtonHoldClick" suggests a hold/long-press handler.
-	   	* **If the diff shows a variable/function/identifier being renamed** (e.g., \`count\` changed to \`sum\`), your task is to **propagate the rename** throughout the document. Update all references to use the new name. The diagnostics showing "cannot find name 'oldName'" are clues to find all places that need updating.
-	   	* Assume temporary diagnostics (like 'unused variable' or 'missing initializer' on a new line) are signs of work-in-progress.
-	   	* Your task is to **complete the feature**. For an unused variable, find a logical place to use it. For an incomplete statement, finish it. **Never suggest deleting the user's new work or reverting their changes. Always help them move forward.**
+		* **If the diff shows newly added but incomplete code**, your primary intent is **CONSTRUCTIVE COMPLETION**. Be creative and helpful!
+		* **For incomplete functions/variables** (e.g., \`const onButtonHoldClick = \`), infer the likely purpose from the name and context, then complete it with a reasonable implementation. For example, "onButtonHoldClick" suggests a hold/long-press handler.
+		* **If the diff shows a variable/function/identifier being renamed** (e.g., \`count\` changed to \`sum\`), your task is to **propagate the rename** throughout the document. Update all references to use the new name. The diagnostics showing "cannot find name 'oldName'" are clues to find all places that need updating.
+		* Assume temporary diagnostics (like 'unused variable' or 'missing initializer' on a new line) are signs of work-in-progress.
+		* Your task is to **complete the feature**. For an unused variable, find a logical place to use it. For an incomplete statement, finish it. **Never suggest deleting the user's new work or reverting their changes. Always help them move forward.**
 
 	**Rule for DELETIONS:**
     	* **If the diff shows a line was deleted**, your primary intent is **LOGICAL REMOVAL**.
@@ -34,7 +34,7 @@ When you see incomplete code, be creative and helpful - infer the user's intent 
     	* The new diagnostics (like "'variable' is not defined") are not errors to be fixed by re-adding code. They are your guide to find all the **obsolete code that now also needs to be deleted.**
     	* Your task is to **propagate the deletion**. Remove all usages of the deleted variables, functions, or components.
 
-    * **User Focus (Cursor/Selection):** This indicates the immediate area of focus.
+  * **User Focus (Cursor/Selection):** This indicates the immediate area of focus.
     
 	* **Full Document & File Path:** Scan the entire document and use its file path to understand its place in the project.
 
@@ -57,6 +57,10 @@ When you see incomplete code, be creative and helpful - infer the user's intent 
     * **Critical Requirements:**
       - Do not include any conversational text, explanations, or any text outside of this required XML format
       - The search content must match the existing code exactly, including whitespace and indentation
+      - **IMPORTANT: Always include COMPLETE code blocks in search patterns. Never use partial matches like single lines from multi-line functions, classes, or objects. Include the entire construct from opening to closing braces/brackets.**
+      - **For functions: Include the entire function from declaration to closing brace**
+      - **For objects/classes: Include the entire structure from opening to closing brace**
+      - **For multi-line statements: Include all lines that form the complete logical unit**
       - Each search block must contain exact text that exists in the current document
       - Use CDATA sections to properly handle multi-line code blocks and special characters
       - Multiple changes should use separate <change> blocks, not nested within a single block
@@ -291,6 +295,57 @@ ${sections.filter(Boolean).join("\n\n")}
 	}
 
 	/**
+	 * Check if the search pattern might be a partial match of a larger code construct
+	 */
+	private isPotentialPartialMatch(content: string, searchPattern: string): boolean {
+		const trimmedPattern = searchPattern.trim()
+
+		// Check for common patterns that suggest partial matches
+		const partialPatterns = [
+			/^(const|let|var|function|class|interface|type)\s+\w+\s*[=:]?\s*$/, // Variable/function declarations without body
+			/^[^{]*\{\s*$/, // Opening brace without closing
+			/^\s*[^}]*$/, // Content without closing brace when it should have one
+			/^[^(]*\([^)]*$/, // Opening parenthesis without closing
+			/^[^[]*\[[^\]]*$/, // Opening bracket without closing
+		]
+
+		return partialPatterns.some((pattern) => pattern.test(trimmedPattern))
+	}
+
+	/**
+	 * Validate if a match represents a complete code construct
+	 */
+	private isCompleteMatch(
+		content: string,
+		matchIndex: number,
+		matchLength: number,
+		originalPattern: string,
+	): boolean {
+		const matchedText = content.substring(matchIndex, matchIndex + matchLength)
+		const trimmedMatch = matchedText.trim()
+		const trimmedPattern = originalPattern.trim()
+
+		// Check for balanced braces, parentheses, and brackets
+		const checkBalance = (open: string, close: string) => {
+			const openCount = (trimmedMatch.match(new RegExp(`\\${open}`, "g")) || []).length
+			const closeCount = (trimmedMatch.match(new RegExp(`\\${close}`, "g")) || []).length
+			return openCount === closeCount
+		}
+
+		if (trimmedPattern.includes("{") || trimmedPattern.includes("}")) {
+			if (!checkBalance("{", "}")) return false
+		}
+		if (trimmedPattern.includes("(") || trimmedPattern.includes(")")) {
+			if (!checkBalance("(", ")")) return false
+		}
+		if (trimmedPattern.includes("[") || trimmedPattern.includes("]")) {
+			if (!checkBalance("[", "]")) return false
+		}
+
+		return true
+	}
+
+	/**
 	 * Find the best match for search content in the document, handling whitespace differences
 	 */
 	private findBestMatch(content: string, searchPattern: string): number {
@@ -343,7 +398,17 @@ ${sections.filter(Boolean).join("\n\n")}
 			}
 		}
 
-		// Try fuzzy matching with flexible whitespace
+		// NEW: Enhanced validation for partial matches
+		// Before doing fuzzy matching, check if this might be a partial match of a larger construct
+		if (this.isPotentialPartialMatch(content, searchPattern)) {
+			console.warn(
+				"Potential partial match detected. Search pattern might be incomplete:",
+				searchPattern.substring(0, 100),
+			)
+			return -1 // Reject partial matches that could cause duplication
+		}
+
+		// Try fuzzy matching with flexible whitespace (only if not a potential partial match)
 		const flexiblePattern = searchPattern
 			.replace(/\s+/g, "\\s+") // Replace any whitespace sequence with flexible regex
 			.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") // Escape regex special characters except our whitespace
@@ -352,7 +417,10 @@ ${sections.filter(Boolean).join("\n\n")}
 			const regex = new RegExp(flexiblePattern, "g")
 			const match = regex.exec(content)
 			if (match) {
-				return match.index
+				// Additional validation: check if this match is part of a larger construct
+				if (this.isCompleteMatch(content, match.index, match[0].length, searchPattern)) {
+					return match.index
+				}
 			}
 		} catch (e) {
 			// Regex failed, continue with other methods
