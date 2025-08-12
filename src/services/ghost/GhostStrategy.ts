@@ -59,8 +59,8 @@ When you see incomplete code, be creative and helpful - infer the user's intent 
       - Each search block must contain exact text that exists in the current document
       - Use CDATA sections to properly handle multi-line code blocks and special characters
       - Multiple changes should use separate <change> blocks, not nested within a single block
-      - **Format the entire XML response as a single line with no whitespace between XML tags**
-      - Only the content inside CDATA sections should contain line breaks, spaces, and tabs
+      - **Do not add extra whitespace or line breaks between XML tags; tags should be directly adjacent**
+      - Only the content inside CDATA sections should contain line breaks, spaces, and tabs as needed for code formatting
 `
 		return customInstructions ? `${basePrompt}${customInstructions}` : basePrompt
 	}
