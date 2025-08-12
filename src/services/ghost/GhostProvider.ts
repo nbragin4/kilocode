@@ -291,8 +291,6 @@ export class GhostProvider {
 
 		this.updateCostTracking(cost)
 
-		console.log("response", response)
-
 		TelemetryService.instance.captureEvent(TelemetryEventName.LLM_COMPLETION, {
 			taskId: this.taskId,
 			inputTokens,
