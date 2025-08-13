@@ -4,65 +4,69 @@ import { GhostSuggestionContext, GhostSuggestionEditOperationType } from "./type
 import { GhostSuggestionsState } from "./GhostSuggestions"
 
 export class GhostStrategy {
-	getSystemPrompt(customInstructions: string = "") {
+	/**
+	 * Returns the universal system prompt that defines the AI's role, capabilities,
+	 * and strict output format. It's designed for broad model compatibility.
+	 */
+	getSystemPrompt(customInstructions: string = ""): string {
 		const basePrompt = `
-You are a hyper-competent AI pair-programmer specializing in real-time, in-line code assistance. Your task is to interpret a user's intent from a code diff and provide precise code modifications to complete their action. You will receive the code context and a diff of recent changes, and you MUST respond ONLY with a single line of XML containing the required changes.
-
-## ⚙️ Core Logic: The Two Intents
-
-Your entire strategy is determined by the \`Recent Changes (Diff)\`. First, analyze if the user is adding/modifying or deleting code.
-
-* **\`+\` Add/Modify Intent ➡️ CONSTRUCTIVE COMPLETION**
-    * If the diff shows new or incomplete code (e.g., \`const newVar =\`), your goal is to **complete it**.
-    * Infer intent from names, comments, and surrounding code to write a logical and complete implementation.
-    * If the diff shows a rename (e.g., \`count\` -> \`sum\`), **propagate the rename** to all other usages of the old name in the document.
-    * **NEVER** delete new code written by the user. Always build upon it.
-
-* **\`-\` Delete Intent ➡️ LOGICAL REMOVAL**
-    * If the diff shows a deletion, your goal is to **clean up the consequences**.
-    * Assume the user wants to remove the associated functionality.
-    * Find all usages of the deleted variable, function, or component and **remove that related, now-obsolete code**.
-    * **NEVER** re-introduce the deleted code. Propagate the removal.
+Task Definition
+You are an expert AI programming assistant. Your task is to analyze the provided code context and user changes to infer the user's intent. Based on that intent, generate the precise code modifications needed to complete their work.
 
 ---
 
-## 📝 Output Format: [CRITICAL]
+Required Output Format (CRITICAL)
+You must adhere strictly to the following XML format. Any deviation will cause the tool to fail.
 
-You **MUST** follow these rules precisely. Any deviation will break the tool.
+1.  **Single-Line XML**: The entire response must be a single, continuous line of XML with no line breaks between tags.
+2.  **Change Blocks**: Each distinct modification must be wrapped in its own \`<change>...\</change>\` tags.
+3.  **Search and Replace**: Inside each \`<change>\` block, use \`<search>\` for the code to be replaced and \`<replace>\` for the new code.
+4.  **Exact Match**: The content in the \`<search>\` tag must exactly match a section of the current code, including all indentation and whitespace.
+5.  **CDATA Wrappers**: All code inside \`<search>\` and \`<replace>\` tags must be wrapped in \`<![CDATA[...]]>\`.
+6.  **Complete Blocks**: Always search for and replace complete logical code blocks (e.g., entire functions, classes, or multi-line statements). Do not target partial or single lines from a larger block.
+7.  **No Overlapping Changes**: Never generate multiple \`<change>\` blocks that modify the same or overlapping lines of code. If several edits are needed in one function, you must create a single \`<change>\` block that replaces the entire original function with its new version.`
 
-1.  **Single-Line XML Only**: Your entire response **MUST BE a single line of XML** with no line breaks or whitespace between tags. All conversational text, explanations, or apologies are forbidden.
-2.  **CDATA Wrappers**: All code content inside \`<search>\` and \`<replace>\` tags **MUST** be wrapped in \`<![CDATA[...]]>\`.
-3.  **Exact Match Search**: The content within a \`<search>\` tag **MUST EXACTLY MATCH** a block of code in the current document, including all indentation, whitespace, and newlines.
-4.  **Complete Blocks**: **ALWAYS** search for and replace complete logical blocks.
-    * **Functions**: Include the entire function from its declaration/signature to its closing brace \`}\`.
-    * **Classes/Objects**: Include the entire structure from declaration to closing brace \`}\`.
-    * **Multi-line statements**: Include all lines of the statement.
-    * **❌ NEVER** search for partial lines or incomplete fragments of a block.
-5.  **No Overlapping Changes**: This is an **ABSOLUTE RULE**. You must not generate multiple \`<change>\` blocks that target the same or overlapping lines of code. If multiple edits are needed in the same function, create **ONE** \`<change>\` block that replaces the entire original function with the entire modified function.
-
-### ✅ Correct Single-Line XML Example:
-\`<change><search><![CDATA[function old() {
-  console.log("old");
-}]]></search><replace><![CDATA[function newVersion() {
-  console.log("new and improved");
-}]]></replace></change><change><search><![CDATA[const x = 1;]]></search><replace><![CDATA[const x = 2;]]></replace></change>\`
-`
-		return customInstructions ? `${basePrompt}${customInstructions}` : basePrompt
+		// Append any dynamic custom instructions if provided
+		return customInstructions ? `${basePrompt}\n\n---\n\n${customInstructions}` : basePrompt
 	}
 
-	private getBaseSuggestionPrompt() {
-		return `\
-**Task: Analyze the code diff and context below. Infer my intent and generate a single-line XML response to complete the code.**
-
-## Context for Analysis
+	/**
+	 * Provides the static introductory part of the user-facing prompt.
+	 */
+	private getBaseSuggestionPrompt(): string {
+		return `
+## Context
 `
+	}
+
+	/**
+	 * Provides the static instructions that guide the model's reasoning process.
+	 */
+	private getInstructionsPrompt(): string {
+		return `
+---
+
+## Instructions
+
+1.  **Analyze Intent**: Your primary goal is to understand the user's intent from the \`Recent User Actions\`.
+    * **If code was added or modified**, assume the user wants to build upon it. Your task is to complete the feature or propagate the change (like a rename).
+    * **If code was deleted**, assume the user wants to remove functionality. Your task is to find and delete all related, now-obsolete code.
+
+2.  **Plan Changes**: Based on the intent, examine the \`Full Code\` and \`Active Diagnostics\`. The diagnostics are clues to what is now inconsistent or incomplete. Identify all code blocks that need to be added, removed, or updated.
+
+3.  **Generate Response**: Produce a response containing only the XML-formatted changes. Do not include any explanations, apologies, or conversational text.
+`
+	}
+
+	private getFilePathPrompt(context: GhostSuggestionContext): string {
+		return context.document ? `* **File Path**: \`${context.document.uri.toString()}\`` : ""
 	}
 
 	private getRecentUserActions(context: GhostSuggestionContext) {
 		if (!context.recentOperations || context.recentOperations.length === 0) {
 			return ""
 		}
-		let result = `* **Recent User Actions:**\n\n`
+		let result = `* **Recent User Actions:**\n`
 		let actionIndex = 1
 
 		// Flatten all actions from all groups and list them individually
@@ -78,193 +82,79 @@ You **MUST** follow these rules precisely. Any deviation will break the tool.
 		return result
 	}
 
-	private getUserFocusPrompt(context: GhostSuggestionContext) {
-		const { range } = context
-		if (!range) {
-			return ""
-		}
-		const cursorLine = range.start.line + 1 // 1-based line number
-		const cursorCharacter = range.start.character + 1 // 1-based character position
-		return `* **User Focus:**
-Cursor Position: Line ${cursorLine}, Character ${cursorCharacter}`
+	private getUserFocusPrompt(context: GhostSuggestionContext): string {
+		if (!context.range) return ""
+		const { start } = context.range
+		return `* **User Focus**: Cursor at Line ${start.line + 1}, Character ${start.character + 1}`
 	}
 
-	private getUserSelectedTextPrompt(context: GhostSuggestionContext) {
-		const { document, range } = context
-		if (!document || !range) {
-			return ""
-		}
-		const selectedText = document.getText(range)
-		const languageId = document.languageId
-		return `* **Selected Text:**
-\`\`\`${languageId}
-${selectedText}
-\`\`\``
+	private getUserSelectedTextPrompt(context: GhostSuggestionContext): string {
+		if (!context.document || !context.range || context.range.isEmpty) return ""
+		const selectedText = context.document.getText(context.range)
+		return `* **Selected Text**:\n    \`\`\`${context.document.languageId}\n${selectedText}\n    \`\`\``
 	}
 
-	private getUserCurrentDocumentPrompt(context: GhostSuggestionContext) {
-		const { document } = context
-		if (!document) {
-			return ""
-		}
-		const documentUri = document.uri.toString()
-		const languageId = document.languageId
-		return `
-## Full Document Code
-\`\`\`${languageId}
-${document.getText()}
-\`\`\``
+	private getUserInputPrompt(context: GhostSuggestionContext): string {
+		if (!context.userInput) return ""
+		return `* **User Query**: "${context.userInput}"`
 	}
 
-	private getUserInputPrompt(context: GhostSuggestionContext) {
-		const { userInput } = context
-		if (!userInput) {
-			return ""
+	private getASTInfoPrompt(context: GhostSuggestionContext): string {
+		if (!context.rangeASTNode) return ""
+		const node = context.rangeASTNode
+		let astInfo = `* **AST Context**:\n`
+		astInfo += `    * **Current Node**: \`${node.type}\`\n`
+		if (node.parent) {
+			astInfo += `    * **Parent Node**: \`${node.parent.type}\`\n`
 		}
-		return `* **User Input:**
-\`\`\`
-${userInput}
-\`\`\``
-	}
-
-	private getASTInfoPrompt(context: GhostSuggestionContext) {
-		if (!context.documentAST) {
-			return ""
-		}
-
-		let astInfo = `* **AST Information:**\n`
-
-		// Add language information
-		astInfo += `Language: ${context.documentAST.language}\n\n`
-
-		// If we have a cursor position with an AST node, include that information
-		if (context.rangeASTNode) {
-			const node = context.rangeASTNode
-			astInfo += `Current Node Type: ${node.type}\n`
-			astInfo += `Current Node Text: ${node.text.substring(0, 100)}${node.text.length > 100 ? "..." : ""}\n`
-
-			// Include parent context if available
-			if (node.parent) {
-				astInfo += `Parent Node Type: ${node.parent.type}\n`
-
-				// Include siblings for context
-				const siblings = []
-				let sibling = node.previousSibling
-				while (sibling && siblings.length < 3) {
-					siblings.unshift(
-						`${sibling.type}: ${sibling.text.substring(0, 30)}${sibling.text.length > 30 ? "..." : ""}`,
-					)
-					sibling = sibling.previousSibling
-				}
-
-				sibling = node.nextSibling
-				while (sibling && siblings.length < 5) {
-					siblings.push(
-						`${sibling.type}: ${sibling.text.substring(0, 30)}${sibling.text.length > 30 ? "..." : ""}`,
-					)
-					sibling = sibling.nextSibling
-				}
-
-				if (siblings.length > 0) {
-					astInfo += `\nSurrounding Nodes:\n`
-					siblings.forEach((s, i) => {
-						astInfo += `${i + 1}. ${s}\n`
-					})
-				}
-			}
-
-			// Include children for context
-			const children = []
-			for (let i = 0; i < node.childCount && children.length < 5; i++) {
-				const child = node.child(i)
-				if (child) {
-					children.push(`${child.type}: ${child.text.substring(0, 30)}${child.text.length > 30 ? "..." : ""}`)
-				}
-			}
-
-			if (children.length > 0) {
-				astInfo += `\nChild Nodes:\n`
-				children.forEach((c, i) => {
-					astInfo += `${i + 1}. ${c}\n`
-				})
-			}
-		}
-
 		return astInfo
 	}
 
-	private getDiagnosticsPrompt(context: GhostSuggestionContext) {
-		if (!context.diagnostics || context.diagnostics.length === 0) {
-			return ""
-		}
+	private getDiagnosticsPrompt(context: GhostSuggestionContext): string {
+		if (!context.diagnostics || context.diagnostics.length === 0) return ""
 
-		let diagnosticsInfo = `* **Document Diagnostics:**\n`
-
-		// Group diagnostics by severity
-		const errorDiagnostics = context.diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
-		const warningDiagnostics = context.diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Warning)
-		const infoDiagnostics = context.diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Information)
-		const hintDiagnostics = context.diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Hint)
-
-		// Format errors
-		if (errorDiagnostics.length > 0) {
-			diagnosticsInfo += `\nErrors (${errorDiagnostics.length}):\n`
-			errorDiagnostics.forEach((diagnostic, index) => {
-				const line = diagnostic.range.start.line + 1 // 1-based line number
-				const character = diagnostic.range.start.character + 1 // 1-based character position
-				diagnosticsInfo += `${index + 1}. Line ${line}, Char ${character}: ${diagnostic.message}\n`
+		const formattedDiagnostics = context.diagnostics
+			.map((d) => {
+				const severity = vscode.DiagnosticSeverity[d.severity]
+				const line = d.range.start.line + 1
+				return `        * **${severity}**: ${d.message} (Line ${line})`
 			})
-		}
+			.join("\n")
 
-		// Format warnings
-		if (warningDiagnostics.length > 0) {
-			diagnosticsInfo += `\nWarnings (${warningDiagnostics.length}):\n`
-			warningDiagnostics.forEach((diagnostic, index) => {
-				const line = diagnostic.range.start.line + 1 // 1-based line number
-				const character = diagnostic.range.start.character + 1 // 1-based character position
-				diagnosticsInfo += `${index + 1}. Line ${line}, Char ${character}: ${diagnostic.message}\n`
-			})
-		}
-
-		// Format information
-		if (infoDiagnostics.length > 0) {
-			diagnosticsInfo += `\nInformation (${infoDiagnostics.length}):\n`
-			infoDiagnostics.forEach((diagnostic, index) => {
-				const line = diagnostic.range.start.line + 1 // 1-based line number
-				const character = diagnostic.range.start.character + 1 // 1-based character position
-				diagnosticsInfo += `${index + 1}. Line ${line}, Char ${character}: ${diagnostic.message}\n`
-			})
-		}
-
-		// Format hints
-		if (hintDiagnostics.length > 0) {
-			diagnosticsInfo += `\nHints (${hintDiagnostics.length}):\n`
-			hintDiagnostics.forEach((diagnostic, index) => {
-				const line = diagnostic.range.start.line + 1 // 1-based line number
-				const character = diagnostic.range.start.character + 1 // 1-based character position
-				diagnosticsInfo += `${index + 1}. Line ${line}, Char ${character}: ${diagnostic.message}\n`
-			})
-		}
-
-		return diagnosticsInfo
+		return `* **Active Diagnostics**:\n${formattedDiagnostics}`
 	}
 
-	getSuggestionPrompt(context: GhostSuggestionContext) {
-		const sections = [
-			this.getBaseSuggestionPrompt(),
-			this.getUserInputPrompt(context),
+	private getUserCurrentDocumentPrompt(context: GhostSuggestionContext): string {
+		if (!context.document) return ""
+		return `
+---
+
+## Full Code
+
+\`\`\`${context.document.languageId}
+${context.document.getText()}
+\`\`\``
+	}
+
+	getSuggestionPrompt(context: GhostSuggestionContext): string {
+		const contextSections = [
+			this.getFilePathPrompt(context),
 			this.getRecentUserActions(context),
+			this.getUserInputPrompt(context),
 			this.getUserFocusPrompt(context),
 			this.getUserSelectedTextPrompt(context),
 			this.getASTInfoPrompt(context),
 			this.getDiagnosticsPrompt(context),
-			this.getUserCurrentDocumentPrompt(context),
 		]
 
-		return `[INST]
-${sections.filter(Boolean).join("\n\n")}
-[/INST]
-`
+		const promptParts = [
+			this.getBaseSuggestionPrompt(),
+			contextSections.filter(Boolean).join("\n"),
+			this.getUserCurrentDocumentPrompt(context),
+			this.getInstructionsPrompt(),
+		]
+
+		return promptParts.filter(Boolean).join("\n")
 	}
 
 	/**

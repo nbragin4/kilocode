@@ -46,6 +46,8 @@ export class GhostModel {
 			throw new Error("API handler is not initialized. Please check your configuration.")
 		}
 
+		console.log("USED MODEL", this.apiHandler.getModel())
+
 		const stream = this.apiHandler.createMessage(systemPrompt, [
 			{ role: "user", content: [{ type: "text", text: userPrompt }] },
 		])
