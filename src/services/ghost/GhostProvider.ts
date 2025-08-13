@@ -286,8 +286,13 @@ export class GhostProvider {
 			await this.reload()
 		}
 
+		console.log("system", systemPrompt)
+		console.log("userprompt", userPrompt)
+
 		const { response, cost, inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens } =
 			await this.model.generateResponse(systemPrompt, userPrompt)
+
+		console.log("response", response)
 
 		this.updateCostTracking(cost)
 

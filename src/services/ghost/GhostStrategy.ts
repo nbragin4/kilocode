@@ -6,78 +6,55 @@ import { GhostSuggestionsState } from "./GhostSuggestions"
 export class GhostStrategy {
 	getSystemPrompt(customInstructions: string = "") {
 		const basePrompt = `
-You are an expert-level AI pair programmer.
-Your single most important goal is to help the user move forward with their current coding task by correctly interpreting their intent from their recent changes.
-You are a proactive collaborator who completes in-progress work and cleans up the consequences of removals, refactors and incomplete code.
-When you see incomplete code, be creative and helpful - infer the user's intent from context clues like variable names, existing patterns, and the surrounding code. Always complete what they started rather than suggesting deletion.
+You are a hyper-competent AI pair-programmer specializing in real-time, in-line code assistance. Your task is to interpret a user's intent from a code diff and provide precise code modifications to complete their action. You will receive the code context and a diff of recent changes, and you MUST respond ONLY with a single line of XML containing the required changes.
 
-## Core Directives
+## ⚙️ Core Logic: The Two Intents
 
-1. **First, Analyze the Change Type:** Your first step is to analyze the \`Recent Changes (Diff)\`. Is the user primarily **adding/modifying** code or **deleting** code? This determines your entire strategy.
+Your entire strategy is determined by the \`Recent Changes (Diff)\`. First, analyze if the user is adding/modifying or deleting code.
 
-2. **Recognize User Intent:** The user's changes are intentional. If they rename a variable, they want that rename propagated. If they delete code, they want related code cleaned up. **Never revert the user's changes** - instead, help them complete what they started.
+* **\`+\` Add/Modify Intent ➡️ CONSTRUCTIVE COMPLETION**
+    * If the diff shows new or incomplete code (e.g., \`const newVar =\`), your goal is to **complete it**.
+    * Infer intent from names, comments, and surrounding code to write a logical and complete implementation.
+    * If the diff shows a rename (e.g., \`count\` -> \`sum\`), **propagate the rename** to all other usages of the old name in the document.
+    * **NEVER** delete new code written by the user. Always build upon it.
 
-3. **Analyze Full Context:** Scrutinize all provided information:
-    
-	**Recent Changes (Diff):** This is your main clue to the user's intent.
-		
-	**Rule for ADDITIONS/MODIFICATIONS:**
-		* **If the diff shows newly added but incomplete code**, your primary intent is **CONSTRUCTIVE COMPLETION**. Be creative and helpful!
-		* **For incomplete functions/variables** (e.g., \`const onButtonHoldClick = \`), infer the likely purpose from the name and context, then complete it with a reasonable implementation. For example, "onButtonHoldClick" suggests a hold/long-press handler.
-		* **If the diff shows a variable/function/identifier being renamed** (e.g., \`count\` changed to \`sum\`), your task is to **propagate the rename** throughout the document. Update all references to use the new name. The diagnostics showing "cannot find name 'oldName'" are clues to find all places that need updating.
-		* Assume temporary diagnostics (like 'unused variable' or 'missing initializer' on a new line) are signs of work-in-progress.
-		* Your task is to **complete the feature**. For an unused variable, find a logical place to use it. For an incomplete statement, finish it. **Never suggest deleting the user's new work or reverting their changes. Always help them move forward.**
+* **\`-\` Delete Intent ➡️ LOGICAL REMOVAL**
+    * If the diff shows a deletion, your goal is to **clean up the consequences**.
+    * Assume the user wants to remove the associated functionality.
+    * Find all usages of the deleted variable, function, or component and **remove that related, now-obsolete code**.
+    * **NEVER** re-introduce the deleted code. Propagate the removal.
 
-	**Rule for DELETIONS:**
-    	* **If the diff shows a line was deleted**, your primary intent is **LOGICAL REMOVAL**.
-    	* Assume the user wants to remove the functionality associated with the deleted code.
-    	* The new diagnostics (like "'variable' is not defined") are not errors to be fixed by re-adding code. They are your guide to find all the **obsolete code that now also needs to be deleted.**
-    	* Your task is to **propagate the deletion**. Remove all usages of the deleted variables, functions, or components.
+---
 
-  * **User Focus (Cursor/Selection):** This indicates the immediate area of focus.
-    
-	* **Full Document & File Path:** Scan the entire document and use its file path to understand its place in the project.
+## 📝 Output Format: [CRITICAL]
 
-4.  **Strict Search and Replace XML Output Format:** Your entire response **MUST** use the following XML format for each change:
-    * Each change must be wrapped in <change> blocks
-    * Use <search> tags to identify the exact code block to be replaced
-    * Use <replace> tags to provide the replacement content
-    * Wrap code content in CDATA sections to handle special characters and multi-line code properly
-    * You can provide multiple <change> blocks for multiple modifications
-    * **IMPORTANT: Format as single-line XML with NO line breaks or whitespace between tags**
-    * **Example:**
-      \`\`\`xml
-      <change><search><![CDATA[const oldFunction = () => { console.log("old"); }]]></search><replace><![CDATA[const newFunction = () => { console.log("new"); return true; }]]></replace></change>
-      \`\`\`
-    * **Critical Requirements:**
-      - Do not include any conversational text, explanations, or any text outside of this required XML format
-      - The search content must match the existing code exactly, including whitespace and indentation
-      - **IMPORTANT: Always include COMPLETE code blocks in search patterns. Never use partial matches like single lines from multi-line functions, classes, or objects. Include the entire construct from opening to closing braces/brackets.**
-      - **For functions: Include the entire function from declaration to closing brace**
-      - **For objects/classes: Include the entire structure from opening to closing brace**
-      - **For multi-line statements: Include all lines that form the complete logical unit**
-      - Each search block must contain exact text that exists in the current document
-      - Use CDATA sections to properly handle multi-line code blocks and special characters
-      - Multiple changes should use separate <change> blocks, not nested within a single block
-      - **Do not add extra whitespace or line breaks between XML tags; tags should be directly adjacent**
-      - Only the content inside CDATA sections should contain line breaks, spaces, and tabs as needed for code formatting
+You **MUST** follow these rules precisely. Any deviation will break the tool.
+
+1.  **Single-Line XML Only**: Your entire response **MUST BE a single line of XML** with no line breaks or whitespace between tags. All conversational text, explanations, or apologies are forbidden.
+2.  **CDATA Wrappers**: All code content inside \`<search>\` and \`<replace>\` tags **MUST** be wrapped in \`<![CDATA[...]]>\`.
+3.  **Exact Match Search**: The content within a \`<search>\` tag **MUST EXACTLY MATCH** a block of code in the current document, including all indentation, whitespace, and newlines.
+4.  **Complete Blocks**: **ALWAYS** search for and replace complete logical blocks.
+    * **Functions**: Include the entire function from its declaration/signature to its closing brace \`}\`.
+    * **Classes/Objects**: Include the entire structure from declaration to closing brace \`}\`.
+    * **Multi-line statements**: Include all lines of the statement.
+    * **❌ NEVER** search for partial lines or incomplete fragments of a block.
+5.  **No Overlapping Changes**: This is an **ABSOLUTE RULE**. You must not generate multiple \`<change>\` blocks that target the same or overlapping lines of code. If multiple edits are needed in the same function, create **ONE** \`<change>\` block that replaces the entire original function with the entire modified function.
+
+### ✅ Correct Single-Line XML Example:
+\`<change><search><![CDATA[function old() {
+  console.log("old");
+}]]></search><replace><![CDATA[function newVersion() {
+  console.log("new and improved");
+}]]></replace></change><change><search><![CDATA[const x = 1;]]></search><replace><![CDATA[const x = 2;]]></replace></change>\`
 `
 		return customInstructions ? `${basePrompt}${customInstructions}` : basePrompt
 	}
 
 	private getBaseSuggestionPrompt() {
 		return `\
-# Task
-Analyze my recent code modifications to infer my underlying intent. Based on that intent, identify all related code that is now obsolete or inconsistent and provide targeted changes using the XML search-and-replace format.
+**Task: Analyze the code diff and context below. Infer my intent and generate a single-line XML response to complete the code.**
 
-# Instructions
-1.  **Infer Intent:** First, analyze the \`Recent Changes (Diff)\` to form a hypothesis about my goal. If I've started writing something incomplete, infer what I'm trying to achieve.
-2.  **Be Creative and Helpful:** For incomplete code (like \`const onButtonHoldClick = \`), use context clues to complete it intelligently. Consider the name, surrounding code, and common patterns.
-3.  **Identify All Impacts:** Based on the inferred intent, scan the \`Current Document\` to find every piece of code that is affected. This includes component usages, variables, and related text or comments that are now obsolete.
-4.  **Fix Document Diagnostics:** If the \`Current Document\` has diagnostics, assume they are now obsolete due to the changes. Remove or update them as necessary.
-5.  **Generate XML Search-and-Replace Response:** Your response must use the XML format with <change>, <search>, and <replace> tags. Each <search> block must contain exact text that exists in the current document, and each <replace> block must contain the updated code. Use CDATA sections to handle multi-line code properly. Provide multiple <change> blocks if multiple modifications are needed.
-
-# Context
+## Context for Analysis
 `
 	}
 
@@ -85,7 +62,7 @@ Analyze my recent code modifications to infer my underlying intent. Based on tha
 		if (!context.recentOperations || context.recentOperations.length === 0) {
 			return ""
 		}
-		let result = `**Recent User Actions:**\n\n`
+		let result = `* **Recent User Actions:**\n\n`
 		let actionIndex = 1
 
 		// Flatten all actions from all groups and list them individually
@@ -108,7 +85,7 @@ Analyze my recent code modifications to infer my underlying intent. Based on tha
 		}
 		const cursorLine = range.start.line + 1 // 1-based line number
 		const cursorCharacter = range.start.character + 1 // 1-based character position
-		return `**User Focus:**
+		return `* **User Focus:**
 Cursor Position: Line ${cursorLine}, Character ${cursorCharacter}`
 	}
 
@@ -119,7 +96,7 @@ Cursor Position: Line ${cursorLine}, Character ${cursorCharacter}`
 		}
 		const selectedText = document.getText(range)
 		const languageId = document.languageId
-		return `**Selected Text:**
+		return `* **Selected Text:**
 \`\`\`${languageId}
 ${selectedText}
 \`\`\``
@@ -132,7 +109,8 @@ ${selectedText}
 		}
 		const documentUri = document.uri.toString()
 		const languageId = document.languageId
-		return `**Current Document: ${documentUri}**
+		return `
+## Full Document Code
 \`\`\`${languageId}
 ${document.getText()}
 \`\`\``
@@ -143,7 +121,7 @@ ${document.getText()}
 		if (!userInput) {
 			return ""
 		}
-		return `**User Input:**
+		return `* **User Input:**
 \`\`\`
 ${userInput}
 \`\`\``
@@ -154,7 +132,7 @@ ${userInput}
 			return ""
 		}
 
-		let astInfo = `**AST Information:**\n`
+		let astInfo = `* **AST Information:**\n`
 
 		// Add language information
 		astInfo += `Language: ${context.documentAST.language}\n\n`
@@ -220,7 +198,7 @@ ${userInput}
 			return ""
 		}
 
-		let diagnosticsInfo = `**Document Diagnostics:**\n`
+		let diagnosticsInfo = `* **Document Diagnostics:**\n`
 
 		// Group diagnostics by severity
 		const errorDiagnostics = context.diagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
@@ -517,8 +495,21 @@ ${sections.filter(Boolean).join("\n\n")}
 		for (const change of changes) {
 			const searchIndex = this.findBestMatch(modifiedContent, change.search)
 			if (searchIndex !== -1) {
+				// Check for overlapping changes before applying
+				const endIndex = searchIndex + change.search.length
+				const hasOverlap = appliedChanges.some((existingChange) => {
+					// Check if ranges overlap
+					const existingStart = existingChange.startIndex
+					const existingEnd = existingChange.endIndex
+					return searchIndex < existingEnd && endIndex > existingStart
+				})
+
+				if (hasOverlap) {
+					console.warn("Skipping overlapping change:", change.search.substring(0, 50))
+					continue // Skip this change to avoid duplicates
+				}
+
 				// Handle the case where search pattern ends with newline but we need to preserve additional whitespace
-				let endIndex = searchIndex + change.search.length
 				let adjustedReplaceContent = change.replace
 
 				// If the search pattern ends with a newline, check if there are additional empty lines after it

@@ -12,15 +12,49 @@ class GhostSuggestionFile {
 	}
 
 	public addOperation(operation: GhostSuggestionEditOperation) {
+		let bestGroup: { groupIndex: number; minDistance: number } | null = null
+
+		// Find the best group to add this operation to
 		for (let groupIndex = 0; groupIndex < this.groups.length; groupIndex++) {
-			for (let opIndex = 0; opIndex < this.groups[groupIndex].length; opIndex++) {
-				const diffLine = this.groups[groupIndex][opIndex].line - operation.line
-				if (Math.abs(diffLine) <= this.rangeMatch) {
-					this.groups[groupIndex].push(operation)
-					return
+			const group = this.groups[groupIndex]
+
+			// Find the minimum distance to any operation in this group
+			let minDistance = Infinity
+			for (let opIndex = 0; opIndex < group.length; opIndex++) {
+				const diffLine = Math.abs(group[opIndex].line - operation.line)
+				if (diffLine < minDistance) {
+					minDistance = diffLine
+				}
+			}
+
+			// Check if this group is within range and is better than current best
+			if (minDistance <= this.rangeMatch) {
+				if (bestGroup === null || minDistance < bestGroup.minDistance) {
+					bestGroup = { groupIndex, minDistance }
 				}
 			}
 		}
+
+		if (bestGroup !== null) {
+			const group = this.groups[bestGroup.groupIndex]
+
+			// Check if we should create a new group due to operation type transition
+			// If the last operation in the group is "add" (+) and the new operation is "delete" (-),
+			// create a new group instead
+			const lastOperation = group[group.length - 1]
+
+			if (lastOperation.type === "+" && operation.type === "-") {
+				// Create a new group for this delete operation
+				this.groups.push([operation])
+				return
+			}
+
+			// Otherwise, add to the best group
+			group.push(operation)
+			return
+		}
+
+		// No suitable group found, create a new one
 		this.groups.push([operation])
 	}
 
