@@ -17,7 +17,8 @@
 - 🌐 Automate the browser
 - 🤖 Latest AI models
 - 🎁 API keys optional
-- 💡 **$20 free credits for Gemini 2.5 Pro, Claude 4 Sonnet & Opus, and GPT-4.1**<br/>Share feedback and earn more credits!
+- 💡 **$Get $25 in free credits: $5 when you sign up, $20 when you top-up for the first time**
+- Credits can be used with 400+ models like Gemini 2.5 Pro, Claude 4 Sonnet & Opus, and GPT-5<br/>Share feedback and earn more credits!
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Kilo-Org/kilocode/refs/heads/main/kilo.gif" width="100%" />
