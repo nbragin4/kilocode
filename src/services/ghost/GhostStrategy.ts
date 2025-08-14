@@ -49,8 +49,9 @@ You must adhere strictly to the following XML format. Any deviation will cause t
 ## Instructions
 
 1.  **Analyze Intent**: Your primary goal is to understand the user's intent from the \`Recent User Actions\`.
-    * **If code was added or modified**, assume the user wants to build upon it. Your task is to complete the feature or propagate the change (like a rename).
-    * **If code was deleted**, assume the user wants to remove functionality. Your task is to find and delete all related, now-obsolete code.
+	   * **If code was added or modified**, assume the user wants to build upon it. Your task is to complete the feature or propagate the change (like a rename).
+	   * **If code was deleted**, assume the user wants to remove functionality. Your task is to find and delete all related, now-obsolete code.
+	   * **If a cursor marker (<<<AUTOCOMPLETE_HERE>>>) is present**, focus on intelligently completing the code from that position, considering the surrounding context and typical coding patterns.
 
 2.  **Plan Changes**: Based on the intent, examine the \`Full Code\` and \`Active Diagnostics\`. The diagnostics are clues to what is now inconsistent or incomplete. Identify all code blocks that need to be added, removed, or updated.
 
@@ -126,13 +127,38 @@ You must adhere strictly to the following XML format. Any deviation will cause t
 
 	private getUserCurrentDocumentPrompt(context: GhostSuggestionContext): string {
 		if (!context.document) return ""
+
+		const fullText = context.document.getText()
+
+		// If we have a cursor position, split the document and add a marker
+		if (context.range && !context.range.isEmpty) {
+			const cursorOffset = context.document.offsetAt(context.range.start)
+			const beforeCursor = fullText.substring(0, cursorOffset)
+			const afterCursor = fullText.substring(cursorOffset)
+
+			// Add a special marker at the cursor position to help the AI focus on autocomplete
+			const CURSOR_MARKER = "<<<AUTOCOMPLETE_HERE>>>"
+
+			return `
+---
+
+## Full Code
+
+**Note**: The cursor is currently at the position marked with \`${CURSOR_MARKER}\`. Focus on completing code from this position based on the context and user intent.
+
+\`\`\`${context.document.languageId}
+${beforeCursor}${CURSOR_MARKER}${afterCursor}
+\`\`\``
+		}
+
+		// Fallback to full document if no cursor position
 		return `
 ---
 
 ## Full Code
 
 \`\`\`${context.document.languageId}
-${context.document.getText()}
+${fullText}
 \`\`\``
 	}
 
@@ -210,11 +236,25 @@ ${context.document.getText()}
 
 	/**
 	 * Find the best match for search content in the document, handling whitespace differences
+	 * @param content The document content to search in
+	 * @param searchPattern The pattern to search for
+	 * @returns The index of the best match, or -1 if no suitable match is found
 	 */
 	private findBestMatch(content: string, searchPattern: string): number {
+		// Validate inputs
+		if (!content || !searchPattern) {
+			console.warn("findBestMatch: Invalid input - content or searchPattern is empty")
+			return -1
+		}
+
+		// Log search attempt for debugging
+		const searchPreview = searchPattern.substring(0, 50).replace(/\n/g, "\\n")
+		console.debug(`Searching for pattern: "${searchPreview}${searchPattern.length > 50 ? "..." : ""}"`)
+
 		// First try exact match
 		let index = content.indexOf(searchPattern)
 		if (index !== -1) {
+			console.debug(`Found exact match at index ${index}`)
 			return index
 		}
 
@@ -228,6 +268,7 @@ ${context.document.getText()}
 				// Check if the character after the match is a newline or end of string
 				const afterMatchIndex = index + searchWithoutTrailingNewline.length
 				if (afterMatchIndex >= content.length || content[afterMatchIndex] === "\n") {
+					console.debug(`Found match without trailing newline at index ${index}`)
 					return index
 				}
 			}
@@ -261,12 +302,15 @@ ${context.document.getText()}
 			}
 		}
 
-		// NEW: Enhanced validation for partial matches
+		// Enhanced validation for partial matches
 		// Before doing fuzzy matching, check if this might be a partial match of a larger construct
 		if (this.isPotentialPartialMatch(content, searchPattern)) {
+			const patternPreview = searchPattern.substring(0, 100).replace(/\n/g, "\\n")
 			console.warn(
-				"Potential partial match detected. Search pattern might be incomplete:",
-				searchPattern.substring(0, 100),
+				`Potential partial match detected. Search pattern might be incomplete: "${patternPreview}${searchPattern.length > 100 ? "..." : ""}"`,
+			)
+			console.warn(
+				"Hint: Ensure the search pattern includes complete code blocks (e.g., full functions, classes)",
 			)
 			return -1 // Reject partial matches that could cause duplication
 		}
@@ -304,6 +348,7 @@ ${context.document.getText()}
 			}
 		}
 
+		console.debug("No suitable match found for the search pattern")
 		return -1 // No match found
 	}
 
