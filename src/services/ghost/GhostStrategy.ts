@@ -538,6 +538,7 @@ ${fullText}
 		}
 
 		suggestions.sortGroups()
+		console.log("suggestionFile", suggestionFile)
 		return suggestions
 	}
 

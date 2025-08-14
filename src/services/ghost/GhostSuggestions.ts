@@ -5,57 +5,95 @@ class GhostSuggestionFile {
 	public fileUri: vscode.Uri
 	private selectedGroup: number | null = null
 	private groups: Array<GhostSuggestionEditOperation[]> = []
-	private rangeMatch = 1
 
 	constructor(public uri: vscode.Uri) {
 		this.fileUri = uri
 	}
 
 	public addOperation(operation: GhostSuggestionEditOperation) {
-		let bestGroup: { groupIndex: number; minDistance: number } | null = null
-
-		// Find the best group to add this operation to
-		for (let groupIndex = 0; groupIndex < this.groups.length; groupIndex++) {
-			const group = this.groups[groupIndex]
-
-			// Find the minimum distance to any operation in this group
-			let minDistance = Infinity
-			for (let opIndex = 0; opIndex < group.length; opIndex++) {
-				const diffLine = Math.abs(group[opIndex].line - operation.line)
-				if (diffLine < minDistance) {
-					minDistance = diffLine
-				}
-			}
-
-			// Check if this group is within range and is better than current best
-			if (minDistance <= this.rangeMatch) {
-				if (bestGroup === null || minDistance < bestGroup.minDistance) {
-					bestGroup = { groupIndex, minDistance }
-				}
-			}
-		}
-
-		if (bestGroup !== null) {
-			const group = this.groups[bestGroup.groupIndex]
-
-			// Check if we should create a new group due to operation type transition
-			// If the last operation in the group is "add" (+) and the new operation is "delete" (-),
-			// create a new group instead
-			const lastOperation = group[group.length - 1]
-
-			if (lastOperation.type === "+" && operation.type === "-") {
-				// Create a new group for this delete operation
-				this.groups.push([operation])
-				return
-			}
-
-			// Otherwise, add to the best group
-			group.push(operation)
+		// Priority 1: Try to create or join a modification group (delete on line N, add on line N+1)
+		const modificationGroupIndex = this.findOrCreateModificationGroup(operation)
+		if (modificationGroupIndex !== -1) {
 			return
 		}
 
-		// No suitable group found, create a new one
+		// Priority 2: Try to join an existing group of same type on subsequent lines
+		const sameTypeGroupIndex = this.findSameTypeGroup(operation)
+		if (sameTypeGroupIndex !== -1) {
+			this.groups[sameTypeGroupIndex].push(operation)
+			return
+		}
+
+		// Priority 3: Create a new group
 		this.groups.push([operation])
+	}
+
+	private findOrCreateModificationGroup(operation: GhostSuggestionEditOperation): number {
+		// Look for existing operations that can form a modification group
+		// Modification group: delete on line N, add on line N+1
+		for (let i = 0; i < this.groups.length; i++) {
+			const group = this.groups[i]
+
+			for (const existingOp of group) {
+				// Check if we can form a modification group
+				const canFormModificationGroup =
+					(operation.type === "+" && existingOp.type === "-" && existingOp.line === operation.line - 1) ||
+					(operation.type === "-" && existingOp.type === "+" && operation.line === existingOp.line - 1)
+
+				if (canFormModificationGroup) {
+					// Remove the existing operation from its current group
+					this.removeOperationFromGroup(i, existingOp)
+
+					// Create new modification group with delete first, then add
+					const deleteOp = operation.type === "-" ? operation : existingOp
+					const addOp = operation.type === "+" ? operation : existingOp
+					this.groups.push([deleteOp, addOp])
+					return this.groups.length - 1
+				}
+			}
+		}
+		return -1
+	}
+
+	private findSameTypeGroup(operation: GhostSuggestionEditOperation): number {
+		for (let i = 0; i < this.groups.length; i++) {
+			const group = this.groups[i]
+
+			// Skip modification groups (groups with both + and -)
+			const hasDelete = group.some((op) => op.type === "-")
+			const hasAdd = group.some((op) => op.type === "+")
+			if (hasDelete && hasAdd) {
+				continue
+			}
+
+			// Check if group has same type operations
+			if (group.length > 0 && group[0].type === operation.type) {
+				// Check if the operation is on a subsequent line
+				const maxLine = Math.max(...group.map((op) => op.line))
+				const minLine = Math.min(...group.map((op) => op.line))
+
+				if (operation.line === maxLine + 1 || operation.line === minLine - 1) {
+					return i
+				}
+			}
+		}
+		return -1
+	}
+
+	private removeOperationFromGroup(groupIndex: number, operation: GhostSuggestionEditOperation) {
+		const group = this.groups[groupIndex]
+		const opIndex = group.findIndex(
+			(op) => op.line === operation.line && op.type === operation.type && op.content === operation.content,
+		)
+
+		if (opIndex !== -1) {
+			group.splice(opIndex, 1)
+
+			// Remove empty groups
+			if (group.length === 0) {
+				this.groups.splice(groupIndex, 1)
+			}
+		}
 	}
 
 	public isEmpty(): boolean {
