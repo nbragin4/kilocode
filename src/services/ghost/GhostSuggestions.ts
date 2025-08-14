@@ -170,6 +170,53 @@ class GhostSuggestionFile {
 			this.selectedGroup = (this.selectedGroup - 1 + this.groups.length) % this.groups.length
 		}
 	}
+
+	public selectClosestGroup(selection: vscode.Selection) {
+		if (this.groups.length === 0) {
+			this.selectedGroup = null
+			return
+		}
+
+		let bestGroup: { groupIndex: number; minDistance: number } | null = null
+		const selectionStartLine = selection.start.line
+		const selectionEndLine = selection.end.line
+
+		// Find the group with minimum distance to the selection
+		for (let groupIndex = 0; groupIndex < this.groups.length; groupIndex++) {
+			const group = this.groups[groupIndex]
+
+			// Calculate minimum distance from selection to any operation in this group
+			let minDistance = Infinity
+			for (const operation of group) {
+				// Calculate distance from selection range to operation line
+				let distance: number
+				if (operation.line < selectionStartLine) {
+					// Operation is before selection
+					distance = selectionStartLine - operation.line
+				} else if (operation.line > selectionEndLine) {
+					// Operation is after selection
+					distance = operation.line - selectionEndLine
+				} else {
+					// Operation is within selection range
+					distance = 0
+				}
+
+				if (distance < minDistance) {
+					minDistance = distance
+				}
+			}
+
+			// Check if this group is better than current best
+			if (bestGroup === null || minDistance < bestGroup.minDistance) {
+				bestGroup = { groupIndex, minDistance }
+			}
+		}
+
+		// Set the closest group as selected
+		if (bestGroup !== null) {
+			this.selectedGroup = bestGroup.groupIndex
+		}
+	}
 }
 
 export class GhostSuggestionsState {

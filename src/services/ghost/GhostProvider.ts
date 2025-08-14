@@ -320,6 +320,7 @@ export class GhostProvider {
 		// Generate placeholder for show the suggestions
 		this.stopProcessing()
 		await this.workspaceEdit.applySuggestionsPlaceholders(this.suggestions)
+		this.selectClosestSuggestion()
 		await this.render()
 	}
 
@@ -328,6 +329,18 @@ export class GhostProvider {
 		await this.displaySuggestions()
 		await this.displayCodeLens()
 		await this.moveCursorToSuggestion()
+	}
+
+	private selectClosestSuggestion() {
+		const editor = vscode.window.activeTextEditor
+		if (!editor) {
+			return
+		}
+		const file = this.suggestions.getFile(editor.document.uri)
+		if (!file) {
+			return
+		}
+		file.selectClosestGroup(editor.selection)
 	}
 
 	private async moveCursorToSuggestion() {
