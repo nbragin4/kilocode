@@ -1,8 +1,6 @@
 # kilo-code
 
-## 4.80.0
-
-### Minor Changes
+## [v4.80.0]
 
 - [#1893](https://github.com/Kilo-Org/kilocode/pull/1893) [`d36b1c1`](https://github.com/Kilo-Org/kilocode/commit/d36b1c17fa9d5cb06d13865b4d1ba1e66500a85c) Thanks [@chrarnoldus](https://github.com/chrarnoldus)! - More price details are now shown for Kilo Code Provider and OpenRouter. Average Kilo Code cost is the average cost of a model when using Kilo Code, after applying caching discounts. A breakdown of provider prices is also available.
 
