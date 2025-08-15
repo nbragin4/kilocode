@@ -16,9 +16,27 @@ describe("GhostSuggestions", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
 			// Add operations with large distances to ensure separate groups
-			const operation1: GhostSuggestionEditOperation = { line: 1, type: "+", content: "line 1" }
-			const operation2: GhostSuggestionEditOperation = { line: 50, type: "+", content: "line 50" }
-			const operation3: GhostSuggestionEditOperation = { line: 100, type: "+", content: "line 100" }
+			const operation1: GhostSuggestionEditOperation = {
+				line: 1,
+				oldLine: 1,
+				newLine: 1,
+				type: "+",
+				content: "line 1",
+			}
+			const operation2: GhostSuggestionEditOperation = {
+				line: 50,
+				oldLine: 50,
+				newLine: 50,
+				type: "+",
+				content: "line 50",
+			}
+			const operation3: GhostSuggestionEditOperation = {
+				line: 100,
+				oldLine: 100,
+				newLine: 100,
+				type: "+",
+				content: "line 100",
+			}
 
 			file.addOperation(operation1)
 			file.addOperation(operation2)
@@ -47,8 +65,20 @@ describe("GhostSuggestions", () => {
 		it("should select group when selection overlaps with operation", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
-			const operation1: GhostSuggestionEditOperation = { line: 5, type: "+", content: "line 5" }
-			const operation2: GhostSuggestionEditOperation = { line: 50, type: "+", content: "line 50" }
+			const operation1: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 5,
+				type: "+",
+				content: "line 5",
+			}
+			const operation2: GhostSuggestionEditOperation = {
+				line: 50,
+				oldLine: 50,
+				newLine: 50,
+				type: "+",
+				content: "line 50",
+			}
 
 			file.addOperation(operation1)
 			file.addOperation(operation2)
@@ -66,8 +96,20 @@ describe("GhostSuggestions", () => {
 		it("should select first group when selection is before all operations", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
-			const operation1: GhostSuggestionEditOperation = { line: 10, type: "+", content: "line 10" }
-			const operation2: GhostSuggestionEditOperation = { line: 20, type: "+", content: "line 20" }
+			const operation1: GhostSuggestionEditOperation = {
+				line: 10,
+				oldLine: 10,
+				newLine: 10,
+				type: "+",
+				content: "line 10",
+			}
+			const operation2: GhostSuggestionEditOperation = {
+				line: 20,
+				oldLine: 20,
+				newLine: 20,
+				type: "+",
+				content: "line 20",
+			}
 
 			file.addOperation(operation1)
 			file.addOperation(operation2)
@@ -84,8 +126,20 @@ describe("GhostSuggestions", () => {
 		it("should select group closest to selection when selection is after all operations", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
-			const operation1: GhostSuggestionEditOperation = { line: 10, type: "+", content: "line 10" }
-			const operation2: GhostSuggestionEditOperation = { line: 50, type: "+", content: "line 50" }
+			const operation1: GhostSuggestionEditOperation = {
+				line: 10,
+				oldLine: 10,
+				newLine: 10,
+				type: "+",
+				content: "line 10",
+			}
+			const operation2: GhostSuggestionEditOperation = {
+				line: 50,
+				oldLine: 50,
+				newLine: 50,
+				type: "+",
+				content: "line 50",
+			}
 
 			file.addOperation(operation1)
 			file.addOperation(operation2)
@@ -113,9 +167,27 @@ describe("GhostSuggestions", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
 			// Create a group with multiple operations
-			const operation1: GhostSuggestionEditOperation = { line: 5, type: "+", content: "line 5" }
-			const operation2: GhostSuggestionEditOperation = { line: 6, type: "+", content: "line 6" }
-			const operation3: GhostSuggestionEditOperation = { line: 20, type: "+", content: "line 20" }
+			const operation1: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 5,
+				type: "+",
+				content: "line 5",
+			}
+			const operation2: GhostSuggestionEditOperation = {
+				line: 6,
+				oldLine: 6,
+				newLine: 6,
+				type: "+",
+				content: "line 6",
+			}
+			const operation3: GhostSuggestionEditOperation = {
+				line: 20,
+				oldLine: 20,
+				newLine: 20,
+				type: "+",
+				content: "line 20",
+			}
 
 			file.addOperation(operation1)
 			file.addOperation(operation2) // Should be in same group as operation1
@@ -136,11 +208,23 @@ describe("GhostSuggestions", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
 			// Add a delete operation on line 5
-			const deleteOp: GhostSuggestionEditOperation = { line: 5, type: "-", content: "old content" }
+			const deleteOp: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 6,
+				type: "-",
+				content: "old content",
+			}
 			file.addOperation(deleteOp)
 
 			// Add an add operation on line 6 (next line) - should form modification group
-			const addOp: GhostSuggestionEditOperation = { line: 6, type: "+", content: "new content" }
+			const addOp: GhostSuggestionEditOperation = {
+				line: 6,
+				oldLine: 5,
+				newLine: 6,
+				type: "+",
+				content: "new content",
+			}
 			file.addOperation(addOp)
 
 			const groups = file.getGroupsOperations()
@@ -154,13 +238,31 @@ describe("GhostSuggestions", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
 			// Add consecutive delete operations (should be in same group)
-			const deleteOp1: GhostSuggestionEditOperation = { line: 5, type: "-", content: "line 5" }
-			const deleteOp2: GhostSuggestionEditOperation = { line: 6, type: "-", content: "line 6" }
+			const deleteOp1: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 6,
+				type: "-",
+				content: "line 5",
+			}
+			const deleteOp2: GhostSuggestionEditOperation = {
+				line: 6,
+				oldLine: 6,
+				newLine: 6,
+				type: "-",
+				content: "line 6",
+			}
 			file.addOperation(deleteOp1)
 			file.addOperation(deleteOp2)
 
 			// Add an add operation on line 6 (after deleteOp1) - should move deleteOp1 to new modification group
-			const addOp: GhostSuggestionEditOperation = { line: 6, type: "+", content: "new line 6" }
+			const addOp: GhostSuggestionEditOperation = {
+				line: 6,
+				oldLine: 5,
+				newLine: 6,
+				type: "+",
+				content: "new line 6",
+			}
 			file.addOperation(addOp)
 
 			const groups = file.getGroupsOperations()
@@ -184,9 +286,27 @@ describe("GhostSuggestions", () => {
 		it("should group consecutive delete operations", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
-			const deleteOp1: GhostSuggestionEditOperation = { line: 5, type: "-", content: "line 5" }
-			const deleteOp2: GhostSuggestionEditOperation = { line: 6, type: "-", content: "line 6" }
-			const deleteOp3: GhostSuggestionEditOperation = { line: 7, type: "-", content: "line 7" }
+			const deleteOp1: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 5,
+				type: "-",
+				content: "line 5",
+			}
+			const deleteOp2: GhostSuggestionEditOperation = {
+				line: 6,
+				oldLine: 6,
+				newLine: 6,
+				type: "-",
+				content: "line 6",
+			}
+			const deleteOp3: GhostSuggestionEditOperation = {
+				line: 7,
+				oldLine: 7,
+				newLine: 7,
+				type: "-",
+				content: "line 7",
+			}
 
 			file.addOperation(deleteOp1)
 			file.addOperation(deleteOp2)
@@ -203,9 +323,27 @@ describe("GhostSuggestions", () => {
 		it("should group consecutive add operations", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
-			const addOp1: GhostSuggestionEditOperation = { line: 5, type: "+", content: "line 5" }
-			const addOp2: GhostSuggestionEditOperation = { line: 6, type: "+", content: "line 6" }
-			const addOp3: GhostSuggestionEditOperation = { line: 7, type: "+", content: "line 7" }
+			const addOp1: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 5,
+				type: "+",
+				content: "line 5",
+			}
+			const addOp2: GhostSuggestionEditOperation = {
+				line: 6,
+				oldLine: 6,
+				newLine: 6,
+				type: "+",
+				content: "line 6",
+			}
+			const addOp3: GhostSuggestionEditOperation = {
+				line: 7,
+				oldLine: 7,
+				newLine: 7,
+				type: "+",
+				content: "line 7",
+			}
 
 			file.addOperation(addOp1)
 			file.addOperation(addOp2)
@@ -222,8 +360,20 @@ describe("GhostSuggestions", () => {
 		it("should create separate groups for non-consecutive operations", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
-			const addOp1: GhostSuggestionEditOperation = { line: 5, type: "+", content: "line 5" }
-			const addOp2: GhostSuggestionEditOperation = { line: 10, type: "+", content: "line 10" } // Gap of 5 lines
+			const addOp1: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 5,
+				type: "+",
+				content: "line 5",
+			}
+			const addOp2: GhostSuggestionEditOperation = {
+				line: 10,
+				oldLine: 10,
+				newLine: 10,
+				type: "+",
+				content: "line 10",
+			} // Gap of 5 lines
 
 			file.addOperation(addOp1)
 			file.addOperation(addOp2)
@@ -237,8 +387,20 @@ describe("GhostSuggestions", () => {
 		it("should create modification group when delete is followed by add on next line", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
-			const deleteOp: GhostSuggestionEditOperation = { line: 5, type: "-", content: "line 5" }
-			const addOp: GhostSuggestionEditOperation = { line: 6, type: "+", content: "line 6" } // Next line - should form modification group
+			const deleteOp: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 6,
+				type: "-",
+				content: "line 5",
+			}
+			const addOp: GhostSuggestionEditOperation = {
+				line: 6,
+				oldLine: 5,
+				newLine: 6,
+				type: "+",
+				content: "line 6",
+			} // Next line - should form modification group
 
 			file.addOperation(deleteOp)
 			file.addOperation(addOp)
@@ -253,8 +415,20 @@ describe("GhostSuggestions", () => {
 		it("should not group different operation types when not consecutive", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
-			const deleteOp: GhostSuggestionEditOperation = { line: 5, type: "-", content: "line 5" }
-			const addOp: GhostSuggestionEditOperation = { line: 7, type: "+", content: "line 7" } // Gap of 1 line - should not form modification group
+			const deleteOp: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 5,
+				type: "-",
+				content: "line 5",
+			}
+			const addOp: GhostSuggestionEditOperation = {
+				line: 7,
+				oldLine: 7,
+				newLine: 7,
+				type: "+",
+				content: "line 7",
+			} // Gap of 1 line - should not form modification group
 
 			file.addOperation(deleteOp)
 			file.addOperation(addOp)
@@ -268,8 +442,20 @@ describe("GhostSuggestions", () => {
 		it("should handle reverse consecutive operations (adding before existing)", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
-			const addOp1: GhostSuggestionEditOperation = { line: 6, type: "+", content: "line 6" }
-			const addOp2: GhostSuggestionEditOperation = { line: 5, type: "+", content: "line 5" } // Before existing
+			const addOp1: GhostSuggestionEditOperation = {
+				line: 6,
+				oldLine: 6,
+				newLine: 6,
+				type: "+",
+				content: "line 6",
+			}
+			const addOp2: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 5,
+				type: "+",
+				content: "line 5",
+			} // Before existing
 
 			file.addOperation(addOp1)
 			file.addOperation(addOp2)
@@ -285,13 +471,31 @@ describe("GhostSuggestions", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
 			// Create a group of consecutive add operations
-			const addOp1: GhostSuggestionEditOperation = { line: 6, type: "+", content: "line 6" }
-			const addOp2: GhostSuggestionEditOperation = { line: 7, type: "+", content: "line 7" }
+			const addOp1: GhostSuggestionEditOperation = {
+				line: 6,
+				oldLine: 5,
+				newLine: 6,
+				type: "+",
+				content: "line 6",
+			}
+			const addOp2: GhostSuggestionEditOperation = {
+				line: 7,
+				oldLine: 7,
+				newLine: 7,
+				type: "+",
+				content: "line 7",
+			}
 			file.addOperation(addOp1)
 			file.addOperation(addOp2)
 
 			// Add a delete operation on line 5 - should move addOp1 to modification group (delete line 5, add line 6)
-			const deleteOp: GhostSuggestionEditOperation = { line: 5, type: "-", content: "old line 5" }
+			const deleteOp: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 6,
+				type: "-",
+				content: "old line 5",
+			}
 			file.addOperation(deleteOp)
 
 			const groups = file.getGroupsOperations()
@@ -316,11 +520,41 @@ describe("GhostSuggestions", () => {
 			const file = ghostSuggestions.addFile(mockUri)
 
 			// Add operations in mixed order
-			const deleteOp1: GhostSuggestionEditOperation = { line: 5, type: "-", content: "line 5" }
-			const deleteOp2: GhostSuggestionEditOperation = { line: 7, type: "-", content: "line 7" }
-			const addOp1: GhostSuggestionEditOperation = { line: 10, type: "+", content: "line 10" }
-			const addOp2: GhostSuggestionEditOperation = { line: 11, type: "+", content: "line 11" }
-			const modifyAdd: GhostSuggestionEditOperation = { line: 6, type: "+", content: "new line 6" }
+			const deleteOp1: GhostSuggestionEditOperation = {
+				line: 5,
+				oldLine: 5,
+				newLine: 6,
+				type: "-",
+				content: "line 5",
+			}
+			const deleteOp2: GhostSuggestionEditOperation = {
+				line: 7,
+				oldLine: 7,
+				newLine: 7,
+				type: "-",
+				content: "line 7",
+			}
+			const addOp1: GhostSuggestionEditOperation = {
+				line: 10,
+				oldLine: 10,
+				newLine: 10,
+				type: "+",
+				content: "line 10",
+			}
+			const addOp2: GhostSuggestionEditOperation = {
+				line: 11,
+				oldLine: 11,
+				newLine: 11,
+				type: "+",
+				content: "line 11",
+			}
+			const modifyAdd: GhostSuggestionEditOperation = {
+				line: 6,
+				oldLine: 5,
+				newLine: 6,
+				type: "+",
+				content: "new line 6",
+			}
 
 			file.addOperation(deleteOp1)
 			file.addOperation(deleteOp2)
