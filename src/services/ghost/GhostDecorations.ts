@@ -126,6 +126,7 @@ export class GhostDecorations {
 		}
 		filteredContent = filteredContent.replaceAll(`"`, `\\"`)
 		filteredContent = filteredContent.replaceAll(`'`, `\\'`)
+		filteredContent = filteredContent.replaceAll(`;`, `\\;`)
 
 		console.log(content)
 
