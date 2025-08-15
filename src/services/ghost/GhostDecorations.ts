@@ -11,6 +11,7 @@ const ADDITION_DECORATION_OPTIONS: vscode.DecorationRenderOptions = {
 		borderColor: new vscode.ThemeColor("editorGutter.addedBackground"),
 	},
 	isWholeLine: false,
+	borderColor: new vscode.ThemeColor("editorGutter.addedBackground"),
 	overviewRulerColor: new vscode.ThemeColor("editorGutter.addedBackground"),
 	overviewRulerLane: vscode.OverviewRulerLane.Right,
 }
@@ -119,7 +120,16 @@ export class GhostDecorations {
 	}
 
 	private getCssInjectionForEdit = (content: string) => {
-		return `none; display: block; position: absolute; top: 0px; left: 0px; width: max-content; z-index: 100; white-space: pre-wrap; content: "${content}";`
+		let filteredContent = content
+		if (filteredContent === "") {
+			filteredContent = "[↵]"
+		}
+		filteredContent = filteredContent.replaceAll(`"`, `\\"`)
+		filteredContent = filteredContent.replaceAll(`'`, `\\'`)
+
+		console.log(content)
+
+		return `none; display: block; position: absolute; top: 0px; left: 0px; width: max-content; z-index: 100; white-space: pre-wrap; content: "${filteredContent}";`
 	}
 
 	private displayAdditionsOperationGroup = (editor: vscode.TextEditor, group: GhostSuggestionEditOperation[]) => {
@@ -131,11 +141,7 @@ export class GhostDecorations {
 		let content = group
 			.sort((a, b) => a.line - b.line)
 			.map((x) => x.content)
-			.join("\\A")
-
-		if (content === "") {
-			content = "[↵]"
-		}
+			.join(`\\A`)
 
 		const renderOptions: vscode.DecorationRenderOptions = { ...ADDITION_DECORATION_OPTIONS }
 		renderOptions.after = {
@@ -194,6 +200,9 @@ export class GhostDecorations {
 		}
 		const selectedGroup = groups[selectedGroupIndex]
 		const groupType = suggestionsFile.getGroupType(selectedGroup)
+
+		console.log("selectedGroup", selectedGroup)
+		console.log("groupType", groupType)
 
 		if (groupType === "/") {
 			this.displayEditOpertionGroup(editor, selectedGroup)
