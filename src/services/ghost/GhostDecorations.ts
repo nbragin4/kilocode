@@ -4,7 +4,6 @@ import { GhostSuggestionEditOperation } from "./types"
 
 const ADDITION_DECORATION_OPTIONS: vscode.DecorationRenderOptions = {
 	after: {
-		margin: "0 0 0 0.1em",
 		color: new vscode.ThemeColor("editor.foreground"),
 		backgroundColor: new vscode.ThemeColor("editor.background"),
 		border: "1px solid",
@@ -20,7 +19,6 @@ const DELETION_DECORATION_OPTIONS: vscode.DecorationRenderOptions = {
 	isWholeLine: false,
 	color: new vscode.ThemeColor("editor.background"),
 	backgroundColor: new vscode.ThemeColor("editorGutter.deletedBackground"),
-	opacity: "0.8",
 	overviewRulerColor: new vscode.ThemeColor("editorGutter.deletedBackground"),
 	overviewRulerLane: vscode.OverviewRulerLane.Right,
 }
@@ -29,8 +27,7 @@ const EDIT_DECORATION_OPTIONS: vscode.DecorationRenderOptions = {
 	after: {
 		// CSS INJECT
 		textDecoration:
-			"none; display: block; position: absolute; top: 100%; left: 20px; width: max-content; z-index: 100;",
-		margin: "0 0 0 0.1em",
+			"none; display: block; position: absolute; top: 100%; left: 20px; width: max-content; z-index: 100; box-shadow: 0 1px 3px rgba(255, 255, 255, 0.12), 0 1px 2px rgba(255, 255, 255, 0.24); padding: 0.2em;",
 		color: new vscode.ThemeColor("editor.foreground"),
 		backgroundColor: new vscode.ThemeColor("editor.background"),
 		border: "1px solid",
@@ -130,7 +127,7 @@ export class GhostDecorations {
 
 		console.log(content)
 
-		return `none; display: block; position: absolute; top: 0px; left: 0px; width: max-content; z-index: 100; white-space: pre-wrap; content: "${filteredContent}";`
+		return `none; display: block; position: absolute; top: 0px; left: 0px; width: max-content; z-index: 100; white-space: pre-wrap; content: "${filteredContent}"; box-shadow: 0 1px 3px rgba(255, 255, 255, 0.12), 0 1px 2px rgba(255, 255, 255, 0.24); padding: 0.2em;`
 	}
 
 	private displayAdditionsOperationGroup = (editor: vscode.TextEditor, group: GhostSuggestionEditOperation[]) => {
