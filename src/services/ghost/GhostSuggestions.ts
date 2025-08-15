@@ -37,8 +37,8 @@ class GhostSuggestionFile {
 			for (const existingOp of group) {
 				// Check if we can form a modification group
 				const canFormModificationGroup =
-					(operation.type === "+" && existingOp.type === "-" && existingOp.line === operation.line - 1) ||
-					(operation.type === "-" && existingOp.type === "+" && operation.line === existingOp.line - 1)
+					(operation.type === "+" && existingOp.type === "-" && existingOp.newLine === operation.newLine) ||
+					(operation.type === "-" && existingOp.type === "+" && operation.newLine === existingOp.newLine)
 
 				if (canFormModificationGroup) {
 					// Remove the existing operation from its current group
@@ -102,6 +102,14 @@ class GhostSuggestionFile {
 
 	public getSelectedGroup(): number | null {
 		return this.selectedGroup
+	}
+
+	public getGroupType = (group: GhostSuggestionEditOperation[]) => {
+		const types = group.flatMap((x) => x.type)
+		if (types.length == 2) {
+			return "/"
+		}
+		return types[0]
 	}
 
 	public getSelectedGroupPreviousOperations(): GhostSuggestionEditOperation[] {
@@ -182,14 +190,11 @@ class GhostSuggestionFile {
 					if (op.type === "-") {
 						op.line = op.line + offset
 					}
+					op.oldLine = op.oldLine + offset
 				}
 			}
 			// reset selected group
-			if (this.groups.length === 0) {
-				this.selectedGroup = null
-			} else if (this.selectedGroup >= this.groups.length) {
-				this.selectedGroup = this.groups.length - 1
-			}
+			this.selectedGroup = null
 		}
 	}
 
@@ -215,44 +220,35 @@ class GhostSuggestionFile {
 			return
 		}
 
-		let bestGroup: { groupIndex: number; minDistance: number } | null = null
+		let bestGroup: { groupIndex: number; distance: number } | null = null
 		const selectionStartLine = selection.start.line
 		const selectionEndLine = selection.end.line
 
 		// Find the group with minimum distance to the selection
 		for (let groupIndex = 0; groupIndex < this.groups.length; groupIndex++) {
 			const group = this.groups[groupIndex]
+			const groupLine = Math.min(...group.map((x) => x.oldLine))
 
 			// Calculate minimum distance from selection to any operation in this group
-			let minDistance = Infinity
-			for (const operation of group) {
-				// Calculate distance from selection range to operation line
-				let distance: number
-				if (operation.line < selectionStartLine) {
-					// Operation is before selection
-					distance = selectionStartLine - operation.line
-				} else if (operation.line > selectionEndLine) {
-					// Operation is after selection
-					distance = operation.line - selectionEndLine
-				} else {
-					// Operation is within selection range
-					distance = 0
-				}
-
-				if (distance < minDistance) {
-					minDistance = distance
-				}
+			let distance = Infinity
+			if (groupLine < selectionStartLine) {
+				distance = selectionStartLine - groupLine
+			} else if (groupLine > selectionEndLine) {
+				distance = groupLine - selectionEndLine
+			} else {
+				distance = 0
 			}
 
 			// Check if this group is better than current best
-			if (bestGroup === null || minDistance < bestGroup.minDistance) {
-				bestGroup = { groupIndex, minDistance }
+			if (bestGroup === null || distance < bestGroup.distance) {
+				bestGroup = { groupIndex, distance }
 			}
 		}
 
 		// Set the closest group as selected
 		if (bestGroup !== null) {
 			this.selectedGroup = bestGroup.groupIndex
+			console.log("BEST GROUP", this.groups[bestGroup.groupIndex])
 		}
 	}
 }

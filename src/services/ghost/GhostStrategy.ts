@@ -3,6 +3,9 @@ import { structuredPatch } from "diff"
 import { GhostSuggestionContext, GhostSuggestionEditOperationType } from "./types"
 import { GhostSuggestionsState } from "./GhostSuggestions"
 
+// Add a special marker at the cursor position to help the AI focus on autocomplete
+const CURSOR_MARKER = "<<<AUTOCOMPLETE_HERE>>>"
+
 export class GhostStrategy {
 	/**
 	 * Returns the universal system prompt that defines the AI's role, capabilities,
@@ -131,13 +134,10 @@ You must adhere strictly to the following XML format. Any deviation will cause t
 		const fullText = context.document.getText()
 
 		// If we have a cursor position, split the document and add a marker
-		if (context.range && !context.range.isEmpty) {
+		if (context.range) {
 			const cursorOffset = context.document.offsetAt(context.range.start)
 			const beforeCursor = fullText.substring(0, cursorOffset)
 			const afterCursor = fullText.substring(cursorOffset)
-
-			// Add a special marker at the cursor position to help the AI focus on autocomplete
-			const CURSOR_MARKER = "<<<AUTOCOMPLETE_HERE>>>"
 
 			return `
 ---
@@ -398,6 +398,8 @@ ${fullText}
 	): Promise<GhostSuggestionsState> {
 		const suggestions = new GhostSuggestionsState()
 
+		const filteredResponse = response.replaceAll(CURSOR_MARKER, "")
+
 		// Extract all <change> blocks from the response
 		// Updated regex to handle both single-line XML format and traditional format with whitespace
 		const changeRegex =
@@ -405,7 +407,7 @@ ${fullText}
 		const changes: Array<{ search: string; replace: string }> = []
 
 		let match
-		while ((match = changeRegex.exec(response)) !== null) {
+		while ((match = changeRegex.exec(filteredResponse)) !== null) {
 			const searchContent = match[1]
 			const replaceContent = match[2]
 			changes.push({ search: searchContent, replace: replaceContent })
@@ -510,6 +512,8 @@ ${fullText}
 						suggestionFile.addOperation({
 							type: "+",
 							line: currentNewLineNumber - 1,
+							oldLine: currentOldLineNumber - 1,
+							newLine: currentNewLineNumber - 1,
 							content: content,
 						})
 						// Only increment the new line counter for additions and context lines
@@ -521,6 +525,8 @@ ${fullText}
 						suggestionFile.addOperation({
 							type: "-",
 							line: currentOldLineNumber - 1,
+							oldLine: currentOldLineNumber - 1,
+							newLine: currentNewLineNumber - 1,
 							content: content,
 						})
 						// Only increment the old line counter for deletions and context lines
@@ -538,7 +544,7 @@ ${fullText}
 		}
 
 		suggestions.sortGroups()
-		console.log("suggestionFile", suggestionFile)
+		console.log("suggestionFile", suggestionFile.getGroupsOperations())
 		return suggestions
 	}
 
@@ -637,6 +643,8 @@ ${fullText}
 						suggestionFile.addOperation({
 							type: "+",
 							line: currentNewLineNumber - 1,
+							oldLine: currentOldLineNumber - 1,
+							newLine: currentNewLineNumber - 1,
 							content: content,
 						})
 						// Only increment the new line counter for additions and context lines
@@ -648,6 +656,8 @@ ${fullText}
 						suggestionFile.addOperation({
 							type: "-",
 							line: currentOldLineNumber - 1,
+							oldLine: currentOldLineNumber - 1,
+							newLine: currentNewLineNumber - 1,
 							content: content,
 						})
 						// Only increment the old line counter for deletions and context lines

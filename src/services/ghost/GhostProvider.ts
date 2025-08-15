@@ -1,5 +1,6 @@
 import crypto from "crypto"
 import * as vscode from "vscode"
+import { t } from "../../i18n"
 import { GhostDocumentStore } from "./GhostDocumentStore"
 import { GhostStrategy } from "./GhostStrategy"
 import { GhostModel } from "./GhostModel"
@@ -7,7 +8,6 @@ import { GhostWorkspaceEdit } from "./GhostWorkspaceEdit"
 import { GhostDecorations } from "./GhostDecorations"
 import { GhostSuggestionContext } from "./types"
 import { GhostStatusBar } from "./GhostStatusBar"
-import { t } from "../../i18n"
 import { addCustomInstructions } from "../../core/prompts/sections/custom-instructions"
 import { getWorkspacePath } from "../../utils/path"
 import { GhostSuggestionsState } from "./GhostSuggestions"
@@ -21,6 +21,7 @@ import { TelemetryService } from "@roo-code/telemetry"
 import { ClineProvider } from "../../core/webview/ClineProvider"
 import { experiments, EXPERIMENT_IDS } from "../../shared/experiments"
 import { GhostCursorAnimation } from "./GhostCursorAnimation"
+import { GhostCursor } from "./GhostCursor"
 
 export class GhostProvider {
 	private static instance: GhostProvider | null = null
@@ -35,7 +36,8 @@ export class GhostProvider {
 	private providerSettingsManager: ProviderSettingsManager
 	private settings: GhostServiceSettings | null = null
 	private ghostContext: GhostContext
-	private cursor: GhostCursorAnimation
+	private cursor: GhostCursor
+	private cursorAnimation: GhostCursorAnimation
 
 	private enabled: boolean = false
 	private taskId: string | null = null
@@ -67,7 +69,8 @@ export class GhostProvider {
 		this.providerSettingsManager = new ProviderSettingsManager(context)
 		this.model = new GhostModel()
 		this.ghostContext = new GhostContext(this.documentStore)
-		this.cursor = new GhostCursorAnimation(context)
+		this.cursor = new GhostCursor()
+		this.cursorAnimation = new GhostCursorAnimation(context)
 
 		// Register the providers
 		this.codeActionProvider = new GhostCodeActionProvider()
@@ -200,7 +203,7 @@ export class GhostProvider {
 		if (!this.enabled) {
 			return
 		}
-		this.cursor.update()
+		this.cursorAnimation.update()
 		const timeSinceLastTextChange = Date.now() - this.lastTextChangeTime
 		const isSelectionChangeFromTyping = timeSinceLastTextChange < 50
 		if (!isSelectionChangeFromTyping) {
@@ -319,7 +322,6 @@ export class GhostProvider {
 		}
 		// Generate placeholder for show the suggestions
 		this.stopProcessing()
-		await this.workspaceEdit.applySuggestionsPlaceholders(this.suggestions)
 		this.selectClosestSuggestion()
 		await this.render()
 	}
@@ -327,8 +329,7 @@ export class GhostProvider {
 	private async render() {
 		await this.updateGlobalContext()
 		await this.displaySuggestions()
-		await this.displayCodeLens()
-		await this.moveCursorToSuggestion()
+		// await this.displayCodeLens()
 	}
 
 	private selectClosestSuggestion() {
@@ -341,27 +342,6 @@ export class GhostProvider {
 			return
 		}
 		file.selectClosestGroup(editor.selection)
-	}
-
-	private async moveCursorToSuggestion() {
-		const topLine = this.getSelectedSuggestionLine()
-		if (topLine === null) {
-			return
-		}
-		const editor = vscode.window.activeTextEditor
-		if (!editor) {
-			return
-		}
-		// Get the text of the line to find its length
-		const lineText = editor.document.lineAt(topLine).text
-		const lineLength = lineText.length
-
-		// Move cursor to the end of the line
-		editor.selection = new vscode.Selection(topLine, lineLength, topLine, lineLength)
-		editor.revealRange(
-			new vscode.Range(topLine, lineLength, topLine, lineLength),
-			vscode.TextEditorRevealType.InCenter,
-		)
 	}
 
 	public async displaySuggestions() {
@@ -436,7 +416,6 @@ export class GhostProvider {
 			taskId: this.taskId,
 		})
 		this.decorations.clearAll()
-		await this.workspaceEdit.revertSuggestionsPlaceholder(this.suggestions)
 		this.suggestions.clear()
 
 		this.clearAutoTriggerTimer()
@@ -468,12 +447,11 @@ export class GhostProvider {
 			taskId: this.taskId,
 		})
 		this.decorations.clearAll()
-		await this.workspaceEdit.revertSuggestionsPlaceholder(this.suggestions)
 		await this.workspaceEdit.applySelectedSuggestions(this.suggestions)
+		this.cursor.moveToAppliedGroup(this.suggestions)
 		suggestionsFile.deleteSelectedGroup()
+		suggestionsFile.selectClosestGroup(editor.selection)
 		this.suggestions.validateFiles()
-		await this.workspaceEdit.applySuggestionsPlaceholders(this.suggestions)
-
 		this.clearAutoTriggerTimer()
 		await this.render()
 	}
@@ -489,7 +467,6 @@ export class GhostProvider {
 			taskId: this.taskId,
 		})
 		this.decorations.clearAll()
-		await this.workspaceEdit.revertSuggestionsPlaceholder(this.suggestions)
 		await this.workspaceEdit.applySuggestions(this.suggestions)
 		this.suggestions.clear()
 
@@ -602,19 +579,19 @@ export class GhostProvider {
 	}
 
 	private startRequesting() {
-		this.cursor.active()
+		this.cursorAnimation.active()
 		this.isProcessing = true
 		this.updateGlobalContext()
 	}
 
 	private startProcessing() {
-		this.cursor.wait()
+		this.cursorAnimation.wait()
 		this.isProcessing = true
 		this.updateGlobalContext()
 	}
 
 	private stopProcessing() {
-		this.cursor.hide()
+		this.cursorAnimation.hide()
 		this.isProcessing = false
 		this.updateGlobalContext()
 	}
