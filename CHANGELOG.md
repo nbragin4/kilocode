@@ -1,8 +1,6 @@
 # kilo-code
 
-## 4.83.0
-
-### Minor Changes
+## [v4.83.0]
 
 - [#2063](https://github.com/Kilo-Org/kilocode/pull/2063) [`e844c5f`](https://github.com/Kilo-Org/kilocode/commit/e844c5f3a43c0808a037156e44f621b36a529abd) Thanks [@kevinvandijk](https://github.com/kevinvandijk)! - Add marketplace for modes
 
