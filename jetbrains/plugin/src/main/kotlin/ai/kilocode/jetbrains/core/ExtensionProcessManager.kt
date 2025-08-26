@@ -324,7 +324,7 @@ class ExtensionProcessManager : Disposable {
      * @param projectBasePath Current project root path
      */
     fun findExtensionEntryFile(): String? {
-        // In debug mode, directly return debug-resources path
+        // In debug mode, directly return resources path
         if (WecoderPluginService.getDebugMode() != DEBUG_MODE.NONE) {
             val debugEntry = java.nio.file.Paths.get(WecoderPluginService.getDebugResource(), RUNTIME_DIR, "src", EXTENSION_ENTRY_FILE).normalize().toFile()
             if (debugEntry.exists() && debugEntry.isFile) {

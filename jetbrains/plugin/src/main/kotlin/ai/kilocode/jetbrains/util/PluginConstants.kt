@@ -5,7 +5,7 @@
 package ai.kilocode.jetbrains.util
 
 object PluginConstants {
-    const val PLUGIN_ID = "kilocode"
+    const val PLUGIN_ID = "ai.kilocode.jetbrains"
     const val PLUGIN_CODE_DIR = "kilocode"
     const val NODE_MODULES_PATH = "node_modules"
     const val EXTENSION_ENTRY_FILE = "extension.js"

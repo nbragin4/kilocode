@@ -5,16 +5,16 @@
 		"clean": {
 			"cache": false
 		},
-		"clean:debug-kilocode": {
+		"clean:resource-kilocode": {
 			"cache": false
 		},
-		"clean:debug-host": {
+		"clean:resource-host": {
 			"cache": false
 		},
-		"clean:debug-logs": {
+		"clean:resource-logs": {
 			"cache": false
 		},
-		"clean:debug-nodemodules": {
+		"clean:resource-nodemodules": {
 			"cache": false
 		},
 		"clean:kilocode": {
@@ -24,21 +24,32 @@
 			"cache": false,
 			"dependsOn": ["clean:kilocode", "kilo-code#vsix:unpacked"]
 		},
-		"copy:debug-kilocode": {
+		"copy:resource-kilocode": {
 			"cache": false,
-			"dependsOn": ["clean:debug-kilocode", "kilo-code#vsix:unpacked"]
+			"dependsOn": ["clean:resource-kilocode", "kilo-code#vsix:unpacked"]
 		},
-		"copy:debug-host": {
+		"copy:resource-host": {
 			"cache": false,
-			"dependsOn": ["clean:debug-host", "@kilo-code/jetbrains-host#bundle", "@kilo-code/jetbrains-host#prop:deps"]
+			"dependsOn": [
+				"clean:resource-host",
+				"@kilo-code/jetbrains-host#bundle",
+				"@kilo-code/jetbrains-host#prop:deps"
+			]
 		},
-		"copy:debug-logs": {
+		"copy:resource-logs": {
 			"cache": false,
-			"dependsOn": ["clean:debug-logs"]
+			"dependsOn": ["clean:resource-logs"]
 		},
-		"copy:debug-nodemodules": {
-			"cache": false,
-			"dependsOn": ["clean:debug-nodemodules"]
+		"copy:resource-nodemodules": {
+			"inputs": ["../host/package.json", "../host/package-lock.json"],
+			"outputs": ["../resources/node_modules/**", "../resources/package.json", "../resources/package-lock.json"],
+			"dependsOn": ["clean:resource-nodemodules", "copy:resource-host"],
+			"env": ["PKG_CONFIG_PATH"]
+		},
+		"propDep": {
+			"inputs": ["../host/package.json", "../host/package-lock.json"],
+			"outputs": ["./prodDep.txt"],
+			"dependsOn": ["copy:resource-nodemodules"]
 		},
 		"build": {
 			"cache": false,
@@ -46,10 +57,10 @@
 			"inputs": ["src/**", "plugin/**"],
 			"dependsOn": [
 				"copy:kilocode",
-				"copy:debug-kilocode",
-				"copy:debug-host",
-				"copy:debug-logs",
-				"copy:debug-nodemodules"
+				"copy:resource-kilocode",
+				"copy:resource-host",
+				"copy:resource-logs",
+				"copy:resource-nodemodules"
 			]
 		},
 		"bundle": {
@@ -58,19 +69,21 @@
 			"inputs": ["src/**", "plugin/**"],
 			"dependsOn": [
 				"copy:kilocode",
-				"copy:debug-kilocode",
-				"copy:debug-host",
-				"copy:debug-logs",
-				"copy:debug-nodemodules"
+				"copy:resource-kilocode",
+				"copy:resource-host",
+				"copy:resource-logs",
+				"copy:resource-nodemodules"
 			]
 		},
 		"run": {
 			"cache": false,
-			"dependsOn": ["build"]
+			"dependsOn": ["build"],
+			"env": ["DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR", "WAYLAND_DISPLAY"]
 		},
 		"run:bundle": {
 			"cache": false,
-			"dependsOn": ["bundle"]
+			"dependsOn": ["bundle"],
+			"env": ["DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR", "WAYLAND_DISPLAY"]
 		}
 	}
 }

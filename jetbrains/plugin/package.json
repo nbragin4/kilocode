@@ -10,13 +10,14 @@
 		"bundle": "./gradlew buildPlugin -PdebugMode=none",
 		"clean:kilocode": "rimraf ./plugins/kilocode && mkdirp ./plugins/kilocode",
 		"copy:kilocode": "cp -R ../../bin-unpacked/extension ./plugins/kilocode/extension",
-		"clean:debug-kilocode": "rimraf ../debug-resources/kilocode",
-		"copy:debug-kilocode": "cp -R ../../bin-unpacked/extension ../debug-resources/kilocode",
-		"clean:debug-host": "rimraf ../debug-resources/runtime",
-		"copy:debug-host": "cp -R ../host/dist ../debug-resources/runtime",
-		"clean:debug-logs": "rimraf ../debug-resources/logs",
-		"copy:debug-logs": "mkdirp ../debug-resources/logs",
-		"clean:debug-nodemodules": "rimraf ../debug-resources/node_modules",
-		"copy:debug-nodemodules": "cp -R ../host/node_modules ../debug-resources/node_modules"
+		"clean:resource-kilocode": "rimraf ../resources/kilocode",
+		"copy:resource-kilocode": "cp -R ../../bin-unpacked/extension ../resources/kilocode",
+		"clean:resource-host": "rimraf ../resources/runtime",
+		"copy:resource-host": "cp -R ../host/dist ../resources/runtime",
+		"clean:resource-logs": "rimraf ../resources/logs",
+		"copy:resource-logs": "mkdirp ../resources/logs",
+		"clean:resource-nodemodules": "rimraf ../resources/node_modules && rimraf ../resources/package.json",
+		"propDep": "rimraf ./propDep.txt && npm ls --omit=dev --all --parseable --prefix ../resources > ./prodDep.txt",
+		"copy:resource-nodemodules": "cp -R ../host/package.json ../resources/package.json && cp -R ../host/package-lock.json ../resources/package-lock.json && npm ci --prefix ../resources"
 	}
 }

@@ -23,7 +23,7 @@ apply("genPlatform.gradle")
 //
 // 1. "idea" — Local development mode (used for debugging VSCode plugin integration)
 //    - Copies theme resources from src/main/resources/themes to:
-//        ../debug-resources/<vscodePlugin>/src/integrations/theme/default-themes/
+//        ../resources/<vscodePlugin>/src/integrations/theme/default-themes/
 //    - Automatically creates a .env file, which the Extension Host (Node.js side) reads at runtime.
 //    - Enables the VSCode plugin to load resources from this directory for integration testing.
 //    - Typically used when running IntelliJ with an Extension Host for live debugging and hot-reloading.
@@ -47,7 +47,7 @@ apply("genPlatform.gradle")
 // ------------------------------------------------------------
 ext {
     set("debugMode", project.findProperty("debugMode") ?: "none")
-    set("debugResource", project.projectDir.resolve("../debug-resources").absolutePath)
+    set("debugResource", project.projectDir.resolve("../resources").absolutePath)
     set("vscodePlugin", project.findProperty("vscodePlugin") ?: "kilocode")
 }
 
@@ -88,7 +88,7 @@ fun Sync.prepareSandbox() {
         from("../host/package.json") { into("${intellij.pluginName.get()}/runtime/") }
         
         // First copy host node_modules
-        from("../host/node_modules") {
+        from("../resources/node_modules") {
             into("${intellij.pluginName.get()}/node_modules/")
             list.forEach {
                 include(it)

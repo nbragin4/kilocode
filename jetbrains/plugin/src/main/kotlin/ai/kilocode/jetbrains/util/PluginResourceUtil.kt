@@ -60,7 +60,7 @@ object PluginResourceUtil {
      * Load resources in development mode
      */
     private fun loadDevResource(resourceName: String, plugin: IdeaPluginDescriptor): String {
-        val resourcePath = Paths.get(plugin.pluginPath.parent.parent.parent.parent.parent.pathString, "debug-resources/$resourceName")
+        val resourcePath = Paths.get(plugin.pluginPath.parent.parent.parent.parent.parent.pathString, "resources/$resourceName")
         return resourcePath.toString()
     }
 
@@ -84,7 +84,7 @@ object PluginResourceUtil {
     private fun checkDevMode(plugin: IdeaPluginDescriptor): Boolean {
         try {
             val isSandbox = System.getProperty("idea.plugins.path")?.contains("idea-sandbox") ?: false
-            val devResourcePath = Paths.get(plugin.pluginPath.parent.parent.parent.parent.parent.pathString, "debug-resources")
+            val devResourcePath = Paths.get(plugin.pluginPath.parent.parent.parent.parent.parent.pathString, "resources")
             return isSandbox && Files.exists(devResourcePath)
         }catch (e: Exception){
             return false
