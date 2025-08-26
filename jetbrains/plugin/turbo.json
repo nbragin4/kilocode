@@ -1,0 +1,76 @@
+{
+	"$schema": "https://turbo.build/schema.json",
+	"extends": ["//"],
+	"tasks": {
+		"clean": {
+			"cache": false
+		},
+		"clean:debug-kilocode": {
+			"cache": false
+		},
+		"clean:debug-host": {
+			"cache": false
+		},
+		"clean:debug-logs": {
+			"cache": false
+		},
+		"clean:debug-nodemodules": {
+			"cache": false
+		},
+		"clean:kilocode": {
+			"cache": false
+		},
+		"copy:kilocode": {
+			"cache": false,
+			"dependsOn": ["clean:kilocode", "kilo-code#vsix:unpacked"]
+		},
+		"copy:debug-kilocode": {
+			"cache": false,
+			"dependsOn": ["clean:debug-kilocode", "kilo-code#vsix:unpacked"]
+		},
+		"copy:debug-host": {
+			"cache": false,
+			"dependsOn": ["clean:debug-host", "@kilo-code/jetbrains-host#bundle", "@kilo-code/jetbrains-host#prop:deps"]
+		},
+		"copy:debug-logs": {
+			"cache": false,
+			"dependsOn": ["clean:debug-logs"]
+		},
+		"copy:debug-nodemodules": {
+			"cache": false,
+			"dependsOn": ["clean:debug-nodemodules"]
+		},
+		"build": {
+			"cache": false,
+			"outputs": ["build/**"],
+			"inputs": ["src/**", "plugin/**"],
+			"dependsOn": [
+				"copy:kilocode",
+				"copy:debug-kilocode",
+				"copy:debug-host",
+				"copy:debug-logs",
+				"copy:debug-nodemodules"
+			]
+		},
+		"bundle": {
+			"cache": false,
+			"outputs": ["build/**"],
+			"inputs": ["src/**", "plugin/**"],
+			"dependsOn": [
+				"copy:kilocode",
+				"copy:debug-kilocode",
+				"copy:debug-host",
+				"copy:debug-logs",
+				"copy:debug-nodemodules"
+			]
+		},
+		"run": {
+			"cache": false,
+			"dependsOn": ["build"]
+		},
+		"run:bundle": {
+			"cache": false,
+			"dependsOn": ["bundle"]
+		}
+	}
+}

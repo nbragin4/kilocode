@@ -22,6 +22,7 @@
         jetbrains.idea-community
         jetbrains.jdk
         gradle
+        unzip
         # Build tools for native modules
         pkg-config
         python3

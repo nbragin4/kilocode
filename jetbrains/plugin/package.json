@@ -1,0 +1,22 @@
+{
+	"name": "@kilo-code/jetbrains-plugin",
+	"license": "Apache-2.0",
+	"type": "module",
+	"scripts": {
+		"clean": "./gradlew clean",
+		"build": "./gradlew buildPlugin -PdebugMode=idea",
+		"run": "./gradlew runIde -PdebugMode=idea",
+		"run:bundle": "./gradlew runIde -PdebugMode=none",
+		"bundle": "./gradlew buildPlugin -PdebugMode=none",
+		"clean:kilocode": "rimraf ./plugins/kilocode && mkdirp ./plugins/kilocode",
+		"copy:kilocode": "cp -R ../../bin-unpacked/extension ./plugins/kilocode/extension",
+		"clean:debug-kilocode": "rimraf ../debug-resources/kilocode",
+		"copy:debug-kilocode": "cp -R ../../bin-unpacked/extension ../debug-resources/kilocode",
+		"clean:debug-host": "rimraf ../debug-resources/runtime",
+		"copy:debug-host": "cp -R ../host/dist ../debug-resources/runtime",
+		"clean:debug-logs": "rimraf ../debug-resources/logs",
+		"copy:debug-logs": "mkdirp ../debug-resources/logs",
+		"clean:debug-nodemodules": "rimraf ../debug-resources/node_modules",
+		"copy:debug-nodemodules": "cp -R ../host/node_modules ../debug-resources/node_modules"
+	}
+}

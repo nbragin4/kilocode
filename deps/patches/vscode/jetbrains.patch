@@ -772,7 +772,7 @@ index 1bc63ba6878..d14cd29de5d 100644
   *  Licensed under the MIT License. See License.txt in the project root for license information.
   *--------------------------------------------------------------------------------------------*/
  
-+import { fileLoggerGlobal } from '../../../../../../src/extension.js';
++import { fileLoggerGlobal } from '../../../../../../../src/extension.js';
 +import { FileRPCProtocolLogger } from '../../../../workbench/services/extensions/common/fileRPCProtocolLogger.js';
 +import { RequestInitiator } from '../../../../workbench/services/extensions/common/rpcProtocol.js';
  import { VSBuffer } from '../../../common/buffer.js';

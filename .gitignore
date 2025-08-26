@@ -11,6 +11,7 @@ mock/
 
 # Builds
 bin/
+bin-unpacked/
 *.vsix
 
 # Local prompts and rules
