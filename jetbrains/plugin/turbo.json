@@ -51,11 +51,16 @@
 			"outputs": ["./prodDep.txt"],
 			"dependsOn": ["copy:resource-nodemodules"]
 		},
+		"sync:version": {
+			"outputs": ["./gradle.properties"],
+			"inputs": ["../src/package.json"]
+		},
 		"build": {
 			"cache": false,
 			"outputs": ["build/**"],
 			"inputs": ["src/**", "plugin/**"],
 			"dependsOn": [
+				"sync:version",
 				"copy:kilocode",
 				"copy:resource-kilocode",
 				"copy:resource-host",
@@ -68,6 +73,7 @@
 			"outputs": ["build/**"],
 			"inputs": ["src/**", "plugin/**"],
 			"dependsOn": [
+				"sync:version",
 				"copy:kilocode",
 				"copy:resource-kilocode",
 				"copy:resource-host",

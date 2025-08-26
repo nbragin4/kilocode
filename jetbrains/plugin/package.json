@@ -18,6 +18,7 @@
 		"copy:resource-logs": "mkdirp ../resources/logs",
 		"clean:resource-nodemodules": "rimraf ../resources/node_modules && rimraf ../resources/package.json",
 		"propDep": "rimraf ./propDep.txt && npm ls --omit=dev --all --parseable --prefix ../resources > ./prodDep.txt",
-		"copy:resource-nodemodules": "cp -R ../host/package.json ../resources/package.json && cp -R ../host/package-lock.json ../resources/package-lock.json && npm ci --prefix ../resources"
+		"copy:resource-nodemodules": "cp -R ../host/package.json ../resources/package.json && cp -R ../host/package-lock.json ../resources/package-lock.json && npm ci --prefix ../resources",
+		"sync:version": "node scripts/sync_version.js"
 	}
 }
