@@ -876,7 +876,7 @@ class WebViewInstance(
                         val path = Paths.get(fsPath)
                         return LocalResHandler(path.pathString,request)
                     }else{
-                        logger.error("Resource request handler not found for url: ${request?.url}")
+                        logger.info("Resource request handler not found for url: ${request?.url}")
                         return null
                     }
 
