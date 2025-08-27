@@ -146,6 +146,8 @@ check_vscode_submodule() {
         cd "$PROJECT_ROOT"
         if git submodule update --init --recursive; then
             print_fix "VSCode submodule initialized successfully"
+            # Small delay to ensure filesystem sync in CI environments
+            sleep 1
         else
             print_error "Failed to initialize VSCode submodule"
             return 1
@@ -154,14 +156,33 @@ check_vscode_submodule() {
         print_success "VSCode submodule is initialized"
     fi
     
-    # Check if submodule has content
-    if [[ -f "$VSCODE_DIR/src/vs/code/electron-main/main.ts" ]]; then
-        print_success "VSCode submodule contains expected files"
-    else
-        print_error "VSCode submodule appears to be incomplete"
-        echo "  Try: git submodule update --init --recursive --force"
-        return 1
-    fi
+    # Check if submodule has content - with retry for CI environments
+    EXPECTED_FILE="$VSCODE_DIR/src/vs/code/electron-main/main.ts"
+    RETRY_COUNT=0
+    MAX_RETRIES=5
+    
+    while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
+        if [[ -f "$EXPECTED_FILE" ]]; then
+            print_success "VSCode submodule contains expected files"
+            break
+        else
+            if [[ $RETRY_COUNT -eq 0 ]]; then
+                print_warning "VSCode submodule file check failed, retrying..."
+            fi
+            ((RETRY_COUNT++))
+            if [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; then
+                echo "  Attempt $RETRY_COUNT/$MAX_RETRIES - waiting 2 seconds..."
+                sleep 2
+            else
+                print_error "VSCode submodule appears to be incomplete after $MAX_RETRIES attempts"
+                echo "  Expected file: $EXPECTED_FILE"
+                echo "  Directory contents:"
+                ls -la "$VSCODE_DIR/src/vs/code/electron-main/" 2>/dev/null || echo "    Directory does not exist"
+                echo "  Try: git submodule update --init --recursive --force"
+                return 1
+            fi
+        fi
+    done
     
     return 0
 }
