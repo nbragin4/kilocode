@@ -3,9 +3,10 @@
 	"license": "Apache-2.0",
 	"type": "module",
 	"scripts": {
-		"deps:patch": "cd ../../deps/vscode && git reset --hard HEAD && git clean -fd && git apply ../patches/vscode/jetbrains.patch",
+		"deps:check": "../../jetbrains/scripts/check-dependencies.sh",
+		"deps:patch": "npm run deps:check && cd ../../deps/vscode && git reset --hard HEAD && git clean -fd && git apply ../patches/vscode/jetbrains.patch",
 		"deps:clean": "rimraf ./deps/vscode/*",
-		"deps:copy": "cp -R ../../deps/vscode/src/* ./deps/vscode",
+		"deps:copy": "npm run deps:check && mkdir -p ./deps/vscode && cp -R ../../deps/vscode/src/* ./deps/vscode",
 		"clean": "rimraf ./dist",
 		"build": "tsc",
 		"build:clean": "npm run clean && npm run build",

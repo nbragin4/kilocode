@@ -2,16 +2,19 @@
 	"$schema": "https://turbo.build/schema.json",
 	"extends": ["//"],
 	"tasks": {
+		"deps:check": {
+			"cache": false
+		},
 		"deps:clean": {
 			"cache": false
 		},
 		"deps:patch": {
 			"cache": false,
-			"dependsOn": ["deps:clean"]
+			"dependsOn": ["deps:check", "deps:clean"]
 		},
 		"deps:copy": {
 			"cache": false,
-			"dependsOn": ["deps:patch"]
+			"dependsOn": ["deps:check", "deps:patch"]
 		},
 		"prop:deps": {
 			"cache": false
