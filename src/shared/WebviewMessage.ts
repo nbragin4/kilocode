@@ -11,6 +11,7 @@ import {
 import type { ShareVisibility } from "@roo-code/cloud"
 
 import { Mode } from "./modes"
+import { TaskHistoryFilters, TaskHistoryMode } from "./TaskHistoryTypes"
 
 export type ClineAskResponse =
 	| "yesButtonClicked"
@@ -62,6 +63,7 @@ export interface WebviewMessage {
 		| "shareCurrentTask"
 		| "showTaskWithId"
 		| "deleteTaskWithId"
+		| "getTaskHistory"
 		| "exportTaskWithId"
 		| "importSettings"
 		| "toggleToolAutoApprove"
@@ -246,6 +248,7 @@ export interface WebviewMessage {
 		| "editMessage" // kilocode_change
 		| "systemNotificationsEnabled" // kilocode_change
 		| "dismissNotificationId" // kilocode_change
+		| "getTaskHistory" // kilocode_change
 		| "shareTaskSuccess"
 		| "exportMode"
 		| "exportModeResult"
@@ -314,7 +317,17 @@ export interface WebviewMessage {
 	terminalOperation?: "continue" | "abort"
 	messageTs?: number
 	historyPreviewCollapsed?: boolean
-	filters?: { type?: string; search?: string; tags?: string[] }
+	filters?: {
+		type?: string
+		search?: string
+		tags?: string[]
+		workspace?: string
+		favoritesOnly?: boolean
+		sortBy?: "date" | "name" | "workspace"
+		mode?: "search" | "favorites" | "page" | "promptHistory" | "metadata"
+		page?: number
+		limit?: number
+	}
 	url?: string // For openExternal
 	mpItem?: MarketplaceItem
 	mpInstallOptions?: InstallMarketplaceItemOptions
@@ -414,6 +427,13 @@ export const installMarketplaceItemWithParametersPayloadSchema = z.object({
 export type InstallMarketplaceItemWithParametersPayload = z.infer<
 	typeof installMarketplaceItemWithParametersPayloadSchema
 >
+
+export interface GetTaskHistoryMessage extends WebviewMessage {
+	type: "getTaskHistory"
+	requestId: string
+	query?: string
+	filters: TaskHistoryFilters & { mode: TaskHistoryMode }
+}
 
 export type WebViewMessagePayload =
 	| CheckpointDiffPayload
