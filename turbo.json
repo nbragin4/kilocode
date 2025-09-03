@@ -56,6 +56,25 @@
 		},
 		"playwright": {
 			"cache": false
+		},
+		"storybook:ci": {
+			"dependsOn": [
+				"@roo-code/types#build",
+				"kilo-code#build",
+				"@roo-code/playwright-e2e#playwright:docker",
+				"@roo-code/storybook#generate-screenshot-stories",
+				"@roo-code/storybook#build-storybook"
+			],
+			"outputs": [
+				"apps/storybook/storybook-static/**",
+				"apps/storybook/stories/generated/**",
+				"apps/storybook/public/screenshots/**"
+			],
+			"cache": false
+		},
+		"playwright:docker": {
+			"cache": false,
+			"outputs": ["apps/playwright-e2e/test-results/**", "apps/playwright-e2e/playwright-report/**"]
 		}
 	}
 }
