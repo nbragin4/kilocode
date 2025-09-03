@@ -2,7 +2,19 @@
 	"$schema": "https://turbo.build/schema.json",
 	"tasks": {
 		"lint": {},
-		"check-types": {},
+		"check-types": {
+			"dependsOn": ["@roo-code/types#build", "@roo-code/build#build", "kilo-code#build"],
+			"outputs": [],
+			"inputs": [
+				"src/**/*.ts",
+				"src/**/*.tsx",
+				"**/*.ts",
+				"**/*.tsx",
+				"tsconfig.json",
+				"tsconfig.*.json",
+				"package.json"
+			]
+		},
 		"test": {
 			"dependsOn": ["@roo-code/types#build"]
 		},
@@ -11,8 +23,13 @@
 			"cache": false
 		},
 		"build": {
+			"outputs": ["dist/**", "**/*.tsbuildinfo"],
+			"inputs": ["src/**", "package.json", "tsconfig.json", "tsconfig.*.json", "tsup.config.ts", "vite.config.ts"]
+		},
+		"bundle": {
+			"dependsOn": ["@roo-code/build#build"],
 			"outputs": ["dist/**"],
-			"inputs": ["src/**", "package.json", "tsconfig.json", "tsup.config.ts", "vite.config.ts"]
+			"inputs": ["src/**", "package.json", "esbuild.mjs"]
 		},
 		"watch:tsc": {
 			"cache": false
