@@ -1,8 +1,6 @@
 # kilo-code
 
-## 4.90.0
-
-### Minor Changes
+## [v4.90.0]
 
 - [#2275](https://github.com/Kilo-Org/kilocode/pull/2275) [`4ae9acc`](https://github.com/Kilo-Org/kilocode/commit/4ae9acc00a90331944333356e8b936a0dcc06e77) Thanks [@jeske](https://github.com/jeske)! - fixes an intermittent async race that discards user-chat-input during structured approve/reject
 
