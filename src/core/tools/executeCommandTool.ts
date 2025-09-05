@@ -15,6 +15,7 @@ import { unescapeHtmlEntities } from "../../utils/text-normalization"
 import { ExitCodeDetails, RooTerminalCallbacks, RooTerminalProcess } from "../../integrations/terminal/types"
 import { TerminalRegistry } from "../../integrations/terminal/TerminalRegistry"
 import { Terminal } from "../../integrations/terminal/Terminal"
+import { detectAndConvertCdPattern } from "../../integrations/terminal/commandUtils"
 import { Package } from "../../shared/package"
 import { t } from "../../i18n"
 
@@ -236,6 +237,12 @@ export async function executeCommand(
 			TelemetryService.instance.captureShellIntegrationError(task.taskId)
 			shellIntegrationError = error
 		}
+	}
+	// Phase 2: Detect and convert cd patterns to prevent terminal fragmentation
+	const { finalCommand, finalCwd, wasConverted } = detectAndConvertCdPattern(command, workingDir)
+	if (wasConverted) {
+		command = finalCommand
+		workingDir = finalCwd
 	}
 
 	const terminal = await TerminalRegistry.getOrCreateTerminal(workingDir, task.taskId, terminalProvider)
