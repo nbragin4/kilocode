@@ -4,24 +4,7 @@ import * as path from "path"
 import { spawnSync } from "child_process"
 import { shouldExcludeLockFile } from "./exclusionUtils"
 import { RooIgnoreController } from "../../core/ignore/RooIgnoreController"
-
-export interface GitChange {
-	filePath: string
-	status: string
-}
-
-export interface GitOptions {
-	staged: boolean
-}
-
-export interface GitProgressOptions extends GitOptions {
-	onProgress?: (percentage: number) => void
-}
-
-export interface GitRepository {
-	inputBox: { value: string }
-	rootUri?: vscode.Uri
-}
+import { GitRepository, GitProgressOptions, GitChange, GitOptions } from "./types"
 
 /**
  * Utility class for Git operations using direct shell commands

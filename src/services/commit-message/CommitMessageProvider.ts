@@ -3,7 +3,6 @@ import * as vscode from "vscode"
 import { ContextProxy } from "../../core/config/ContextProxy"
 import { ProviderSettingsManager } from "../../core/config/ProviderSettingsManager"
 import { singleCompletionHandler } from "../../utils/single-completion-handler"
-import { GitExtensionService, GitChange, GitProgressOptions, GitRepository } from "./GitExtensionService"
 import { supportPrompt } from "../../shared/support-prompt"
 import { t } from "../../i18n"
 import { addCustomInstructions } from "../../core/prompts/sections/custom-instructions"
@@ -11,6 +10,8 @@ import { getWorkspacePath } from "../../utils/path"
 import { TelemetryEventName, type ProviderSettings } from "@roo-code/types"
 import delay from "delay"
 import { TelemetryService } from "@roo-code/telemetry"
+import { GitExtensionService } from "./GitExtensionService"
+import { GitRepository } from "./types"
 
 /**
  * Provides AI-powered commit message generation for source control management.
