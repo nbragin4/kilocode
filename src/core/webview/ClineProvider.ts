@@ -480,8 +480,8 @@ export class ClineProvider
 				if (!parentTask.isInitialized) {
 					this.log(`[finishSubTask] Initializing parent task from history`)
 					// Load the parent task's saved messages and API conversation
-					parentTask.clineMessages = await (parentTask as any).getSavedClineMessages()
-					parentTask.apiConversationHistory = await (parentTask as any).getSavedApiConversationHistory()
+					parentTask.clineMessages = await parentTask.getSavedClineMessages()
+					parentTask.apiConversationHistory = await parentTask.getSavedApiConversationHistory()
 					parentTask.isInitialized = true
 					this.log(`[finishSubTask] Parent task initialized with ${parentTask.clineMessages.length} messages`)
 				}
@@ -504,7 +504,7 @@ export class ClineProvider
 						try {
 							// Continue the task loop with an empty user content since the subtask result
 							// has already been added to the API conversation history
-							await (parentTask as any).recursivelyMakeClineRequests([], false)
+							await parentTask.recursivelyMakeClineRequests([], false)
 						} catch (error) {
 							this.log(
 								`[finishSubTask] Error continuing parent task execution: ${error instanceof Error ? error.message : String(error)}`,
