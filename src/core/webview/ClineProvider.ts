@@ -469,67 +469,7 @@ export class ClineProvider
 		await this.removeClineFromStack()
 		// Resume the last cline instance in the stack (if it exists - this is
 		// the 'parent' calling task).
-		// kilocode_change start
-		const parentTask = this.getCurrentTask()
-		if (parentTask) {
-			this.log(`[finishSubTask] Found parent task ${parentTask.taskId}, isPaused: ${parentTask.isPaused}`)
-			this.log(`[finishSubTask] Parent task isInitialized: ${parentTask.isInitialized}`)
-
-			try {
-				// If the parent task is not initialized, we need to initialize it properly
-				if (!parentTask.isInitialized) {
-					this.log(`[finishSubTask] Initializing parent task from history`)
-					// Load the parent task's saved messages and API conversation
-					parentTask.clineMessages = await parentTask.getSavedClineMessages()
-					parentTask.apiConversationHistory = await parentTask.getSavedApiConversationHistory()
-					parentTask.isInitialized = true
-					this.log(`[finishSubTask] Parent task initialized with ${parentTask.clineMessages.length} messages`)
-				}
-
-				// Complete the subtask on the existing parent task
-				// This will add the subtask result to the parent's conversation and unpause it
-				await parentTask.completeSubtask(lastMessage)
-				this.log(`[finishSubTask] Parent task ${parentTask.taskId} subtask completed`)
-
-				// Check if the parent task needs to continue its execution
-				// If the parent task was created from history reconstruction, it may not have
-				// an active execution loop running, so we need to continue it manually
-				if (!parentTask.isPaused && parentTask.isInitialized) {
-					this.log(`[finishSubTask] Parent task is unpaused and initialized, continuing execution`)
-
-					// Continue the parent task's execution with the subtask result
-					// The subtask result has already been added to the conversation by completeSubtask
-					// Now we need to continue the execution loop
-					const continueExecution = async () => {
-						try {
-							// Continue the task loop with an empty user content since the subtask result
-							// has already been added to the API conversation history
-							await parentTask.recursivelyMakeClineRequests([], false)
-						} catch (error) {
-							this.log(
-								`[finishSubTask] Error continuing parent task execution: ${error instanceof Error ? error.message : String(error)}`,
-							)
-						}
-					}
-
-					// Start the continuation in the background to avoid blocking
-					continueExecution()
-				}
-
-				// Update the webview to show the parent task
-				this.log(`[finishSubTask] Updating webview state`)
-				await this.postStateToWebview()
-				this.log(`[finishSubTask] Webview state updated`)
-			} catch (error) {
-				this.log(
-					`[finishSubTask] Error during parent task resumption: ${error instanceof Error ? error.message : String(error)}`,
-				)
-				throw error
-			}
-		} else {
-			this.log(`[finishSubTask] No parent task found in stack`)
-		}
-		// kilocode_change end
+		await this.continueParentTask(lastMessage) // kilocode_change
 	}
 	// Pending Edit Operations Management
 
@@ -1607,6 +1547,69 @@ export class ClineProvider
 	}
 
 	// kilocode_change start
+	private async continueParentTask(lastMessage: string): Promise<void> {
+		const parentTask = this.getCurrentTask()
+		if (parentTask) {
+			this.log(`[continueParentTask] Found parent task ${parentTask.taskId}, isPaused: ${parentTask.isPaused}`)
+			this.log(`[continueParentTask] Parent task isInitialized: ${parentTask.isInitialized}`)
+
+			try {
+				// If the parent task is not initialized, we need to initialize it properly
+				if (!parentTask.isInitialized) {
+					this.log(`[continueParentTask] Initializing parent task from history`)
+					// Load the parent task's saved messages and API conversation
+					parentTask.clineMessages = await parentTask.getSavedClineMessages()
+					parentTask.apiConversationHistory = await parentTask.getSavedApiConversationHistory()
+					parentTask.isInitialized = true
+					this.log(
+						`[continueParentTask] Parent task initialized with ${parentTask.clineMessages.length} messages`,
+					)
+				}
+
+				// Complete the subtask on the existing parent task
+				// This will add the subtask result to the parent's conversation and unpause it
+				await parentTask.completeSubtask(lastMessage)
+				this.log(`[continueParentTask] Parent task ${parentTask.taskId} subtask completed`)
+
+				// Check if the parent task needs to continue its execution
+				// If the parent task was created from history reconstruction, it may not have
+				// an active execution loop running, so we need to continue it manually
+				if (!parentTask.isPaused && parentTask.isInitialized) {
+					this.log(`[continueParentTask] Parent task is unpaused and initialized, continuing execution`)
+
+					// Continue the parent task's execution with the subtask result
+					// The subtask result has already been added to the conversation by completeSubtask
+					// Now we need to continue the execution loop
+					const continueExecution = async () => {
+						try {
+							// Continue the task loop with an empty user content since the subtask result
+							// has already been added to the API conversation history
+							await parentTask.recursivelyMakeClineRequests([], false)
+						} catch (error) {
+							this.log(
+								`[continueParentTask] Error continuing parent task execution: ${error instanceof Error ? error.message : String(error)}`,
+							)
+						}
+					}
+					// Start the continuation in the background to avoid blocking
+					continueExecution()
+				}
+
+				// Update the webview to show the parent task
+				this.log(`[continueParentTask] Updating webview state`)
+				await this.postStateToWebview()
+				this.log(`[continueParentTask] Webview state updated`)
+			} catch (error) {
+				this.log(
+					`[continueParentTask] Error during parent task resumption: ${error instanceof Error ? error.message : String(error)}`,
+				)
+				throw error
+			}
+		} else {
+			this.log(`[continueParentTask] No parent task found in stack`)
+		}
+	}
+
 	/**
 	 * Reconstructs the entire task stack for a subtask by loading and adding
 	 * all parent tasks to the stack in the correct order, then adding the target subtask.
