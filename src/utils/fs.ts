@@ -1,5 +1,6 @@
-import fs from "fs/promises"
+import * as fs from "fs/promises"
 import * as path from "path"
+import { Dirent } from "fs"
 
 /**
  * Asynchronously creates all non-existing subdirectories for a given file path
@@ -78,29 +79,104 @@ const OS_GENERATED_FILES = [
  */
 export const readDirectory = async (directoryPath: string, excludedPaths: string[][] = []) => {
 	try {
-		const filePaths = await fs
-			.readdir(directoryPath, { withFileTypes: true, recursive: true })
-			.then((entries) => entries.filter((entry) => !OS_GENERATED_FILES.includes(entry.name)))
-			.then((entries) => entries.filter((entry) => entry.isFile()))
-			.then((files) => files.map((file) => path.resolve(file.parentPath, file.name)))
-			.then((filePaths) =>
-				filePaths.filter((filePath) => {
-					if (excludedPaths.length === 0) {
-						return true
+		// Track visited paths to prevent infinite loops from cyclic symlinks
+		const visitedPaths = new Set<string>()
+		const allFilePaths: string[] = []
+
+		// Helper function to recursively process directory entries
+		const processEntry = async (entry: Dirent, parentPath: string): Promise<void> => {
+			const fullPath = path.resolve(parentPath, entry.name)
+
+			// Skip OS-generated files
+			if (OS_GENERATED_FILES.includes(entry.name)) {
+				return
+			}
+
+			// Check if we've already visited this path (cycle detection)
+			const normalizedPath = path.normalize(fullPath)
+			if (visitedPaths.has(normalizedPath)) {
+				return
+			}
+			visitedPaths.add(normalizedPath)
+
+			if (entry.isFile()) {
+				// Regular file - add to results
+				allFilePaths.push(fullPath)
+			} else if (entry.isSymbolicLink()) {
+				// Handle symbolic links
+				try {
+					// Get the symlink target
+					const linkTarget = await fs.readlink(fullPath)
+					// Resolve the target path (relative to the symlink location)
+					const resolvedTarget = path.isAbsolute(linkTarget)
+						? linkTarget
+						: path.resolve(path.dirname(fullPath), linkTarget)
+
+					// Check if we've already visited the resolved target
+					const normalizedTarget = path.normalize(resolvedTarget)
+					if (visitedPaths.has(normalizedTarget)) {
+						return
 					}
 
-					for (const excludedPathList of excludedPaths) {
-						const pathToSearchFor = path.sep + excludedPathList.join(path.sep) + path.sep
-						if (filePath.includes(pathToSearchFor)) {
-							return false
-						}
+					// Fully resolve the symlink chain (in case it points to another symlink)
+					const fullyResolvedTarget = await fs.realpath(resolvedTarget)
+					const normalizedFullyResolved = path.normalize(fullyResolvedTarget)
+
+					// Check if we've already visited the fully resolved target
+					if (visitedPaths.has(normalizedFullyResolved)) {
+						return
 					}
 
-					return true
-				}),
-			)
+					// Check what the symlink ultimately points to
+					const targetStats = await fs.stat(fullyResolvedTarget)
 
-		return filePaths
+					if (targetStats.isFile()) {
+						// Symlink points to a file - add the fully resolved path
+						allFilePaths.push(fullyResolvedTarget)
+						visitedPaths.add(normalizedFullyResolved)
+						visitedPaths.add(normalizedTarget)
+					} else if (targetStats.isDirectory()) {
+						// Symlink points to a directory - recursively process it
+						visitedPaths.add(normalizedFullyResolved)
+						visitedPaths.add(normalizedTarget)
+						const dirEntries = await fs.readdir(fullyResolvedTarget, { withFileTypes: true })
+
+						// Process all entries in the symlinked directory
+						await Promise.all(dirEntries.map((dirEntry) => processEntry(dirEntry, fullyResolvedTarget)))
+					}
+				} catch (err) {
+					// Silently skip broken symlinks or permission errors
+				}
+			} else if (entry.isDirectory()) {
+				// Regular directory - recursively process it
+				const dirEntries = await fs.readdir(fullPath, { withFileTypes: true })
+
+				// Process all entries in the directory
+				await Promise.all(dirEntries.map((dirEntry) => processEntry(dirEntry, fullPath)))
+			}
+		}
+
+		// Start processing from the root directory
+		const rootEntries = await fs.readdir(directoryPath, { withFileTypes: true })
+		await Promise.all(rootEntries.map((entry) => processEntry(entry, directoryPath)))
+
+		// Apply excluded paths filter
+		const filteredPaths = allFilePaths.filter((filePath) => {
+			if (excludedPaths.length === 0) {
+				return true
+			}
+
+			for (const excludedPathList of excludedPaths) {
+				const pathToSearchFor = path.sep + excludedPathList.join(path.sep) + path.sep
+				if (filePath.includes(pathToSearchFor)) {
+					return false
+				}
+			}
+
+			return true
+		})
+
+		return filteredPaths
 	} catch {
 		throw new Error(`Error reading directory at ${directoryPath}`)
 	}
