@@ -134,20 +134,6 @@ export const GhostServiceSettingsView = ({
 						</div>
 					)}
 
-					<div className="text-vscode-descriptionForeground text-sm mb-3">
-						<Trans
-							i18nKey="kilocode:ghost.settings.keybindingDescription"
-							components={{
-								DocsLink: (
-									<a
-										href="#"
-										onClick={() => openGlobalKeybindings()}
-										className="text-vscode-textLink hover:text-vscode-textLinkActive cursor-pointer"></a>
-								),
-							}}
-						/>
-					</div>
-
 					<div className="flex flex-col gap-1">
 						<ControlledCheckbox
 							checked={enableQuickInlineTaskKeybinding || false}
