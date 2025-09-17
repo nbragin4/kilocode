@@ -2,7 +2,7 @@
 import { HTMLAttributes } from "react"
 import { useAppTranslation } from "@/i18n/TranslationContext"
 import { Trans } from "react-i18next"
-import { Bot, Webhook, Keyboard, SquareFunction } from "lucide-react"
+import { Bot, Webhook, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useExtensionState } from "../../../context/ExtensionStateContext"
 import { SectionHeader } from "../../settings/SectionHeader"
@@ -92,12 +92,11 @@ export const GhostServiceSettingsView = ({
 			</SectionHeader>
 
 			<Section className="flex flex-col gap-5">
-				{/* Auto Trigger Settings */}
 				<div className="flex flex-col gap-3">
 					<div className="flex flex-col gap-1">
 						<div className="flex items-center gap-2 font-bold">
-							<SquareFunction className="w-4" />
-							<div>{t("kilocode:ghost.settings.autoTrigger")}</div>
+							<Zap className="w-4" />
+							<div>{t("kilocode:ghost.settings.triggers")}</div>
 						</div>
 					</div>
 
@@ -134,16 +133,6 @@ export const GhostServiceSettingsView = ({
 							</div>
 						</div>
 					)}
-				</div>
-
-				{/* Keyboard Settings */}
-				<div className="flex flex-col gap-3">
-					<div className="flex flex-col gap-1">
-						<div className="flex items-center gap-2 font-bold">
-							<Keyboard className="w-4" />
-							<div>{t("kilocode:ghost.settings.triggers")}</div>
-						</div>
-					</div>
 
 					<div className="text-vscode-descriptionForeground text-sm mb-3">
 						<Trans
