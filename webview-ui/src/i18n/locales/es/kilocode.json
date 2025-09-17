@@ -197,7 +197,6 @@
 	"ghost": {
 		"title": "Autocomplete",
 		"settings": {
-			"autoTrigger": "Activación Automática",
 			"triggers": "Activadores",
 			"keybindingDescription": "Las funciones de Autocomplete pueden activarse mediante comandos. Puedes configurar los <DocsLink>Atajos de Teclado aquí</DocsLink>.",
 			"enableAutoTrigger": {

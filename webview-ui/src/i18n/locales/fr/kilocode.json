@@ -204,7 +204,6 @@
 	"ghost": {
 		"title": "Autocomplete",
 		"settings": {
-			"autoTrigger": "Déclenchement Automatique",
 			"triggers": "Déclencheurs",
 			"keybindingDescription": "Les fonctionnalités Autocomplete peuvent être déclenchées par des commandes. Tu peux configurer les <DocsLink>Raccourcis Clavier ici</DocsLink>.",
 			"enableAutoTrigger": {

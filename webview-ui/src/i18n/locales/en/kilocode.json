@@ -208,7 +208,6 @@
 	"ghost": {
 		"title": "Autocomplete",
 		"settings": {
-			"autoTrigger": "Auto Trigger",
 			"triggers": "Triggers",
 			"keybindingDescription": "Autocomplete features can be triggered by commands. You can configure the <DocsLink>Keyboard Shortcuts here</DocsLink>.",
 			"enableAutoTrigger": {

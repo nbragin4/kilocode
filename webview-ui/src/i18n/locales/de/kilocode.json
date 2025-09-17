@@ -204,7 +204,6 @@
 	"ghost": {
 		"title": "Autocomplete",
 		"settings": {
-			"autoTrigger": "Auto-Auslösung",
 			"triggers": "Auslöser",
 			"keybindingDescription": "Autocomplete-Funktionen können durch Befehle ausgelöst werden. Du kannst die <DocsLink>Tastenkombinationen hier</DocsLink> konfigurieren.",
 			"enableAutoTrigger": {

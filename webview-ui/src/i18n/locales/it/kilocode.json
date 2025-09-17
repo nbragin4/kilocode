@@ -204,7 +204,6 @@
 	"ghost": {
 		"title": "Autocomplete",
 		"settings": {
-			"autoTrigger": "Attivazione Automatica",
 			"triggers": "Trigger",
 			"keybindingDescription": "Le funzionalità Autocomplete possono essere attivate tramite comandi. Puoi configurare le <DocsLink>Scorciatoie da Tastiera qui</DocsLink>.",
 			"enableAutoTrigger": {

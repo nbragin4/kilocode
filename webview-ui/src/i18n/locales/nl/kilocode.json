@@ -204,7 +204,6 @@
 	"ghost": {
 		"title": "Autocomplete",
 		"settings": {
-			"autoTrigger": "Automatische Activering",
 			"triggers": "Triggers",
 			"keybindingDescription": "Autocomplete-functies kunnen worden geactiveerd door commando's. Je kunt de <DocsLink>Toetsenbordsnelkoppelingen hier</DocsLink> configureren.",
 			"enableAutoTrigger": {
