@@ -189,8 +189,7 @@ The project uses Turborepo for efficient builds and caching:
 
 Turbo automatically handles:
 
-- VSCode submodule initialization (`deps:check`)
-- Dependency patching (`deps:patch`)
+- VSCode directory setup and patching (`deps:check`)
 - Build caching and parallelization
 
 ## Common Issues and Troubleshooting
