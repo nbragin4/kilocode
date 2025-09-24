@@ -46,7 +46,7 @@ The dependency check runs automatically as part of the build process, but you ca
 
 ```bash
 # Run dependency check manually
-./jetbrains/scripts/check-dependencies.sh
+node jetbrains/scripts/check-dependencies.js
 
 # Or as part of JetBrains host build process
 cd jetbrains/host && pnpm run deps:check
@@ -373,7 +373,7 @@ When making changes to the JetBrains plugin:
 
 ## Scripts
 
-- `jetbrains/scripts/check-dependencies.sh`: Comprehensive dependency verification and setup
+- `jetbrains/scripts/check-dependencies.js`: Cross-platform dependency verification and setup
 - `jetbrains/plugin/scripts/sync_version.js`: Version synchronization utility
 
 For more detailed build information, see the individual `package.json` and `build.gradle.kts` files in the respective directories.
