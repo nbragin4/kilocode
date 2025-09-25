@@ -30,7 +30,7 @@ const depsDir = path.join(projectRoot, "deps")
 let issuesFound = 0
 let fixesApplied = 0
 
-// Simple logging functions
+// Simple logging functions with inline colors
 function printStatus(message) {
 	console.log(`\x1b[34m[CHECK]\x1b[0m ${message}`)
 }
@@ -244,6 +244,13 @@ function checkVscodeDirectory() {
 
 	const expectedFile = path.join(vscodeDir, "src", "vs", "code", "electron-main", "main.ts")
 	const patchFile = path.join(projectRoot, "deps", "patches", "vscode", "jetbrains.patch")
+	const gitDisabledFile = path.join(vscodeDir, ".git.disabled")
+
+	// Check if VSCode directory is already fully set up
+	if (fs.existsSync(expectedFile) && fs.existsSync(gitDisabledFile)) {
+		printSuccess("VSCode directory is already properly configured")
+		return true
+	}
 
 	// Setup repository if expected file doesn't exist
 	if (!fs.existsSync(expectedFile)) {
@@ -252,40 +259,44 @@ function checkVscodeDirectory() {
 		}
 	}
 
-	// Apply patch (handle case where patch might already be applied)
-	printStatus("Applying JetBrains patch...")
-	const originalDir = process.cwd()
-	try {
-		process.chdir(vscodeDir)
-		const relativePatchPath = path.relative(vscodeDir, patchFile)
+	// Only attempt git operations if .git directory exists (not .git.disabled)
+	const gitFile = path.join(vscodeDir, ".git")
+	if (fs.existsSync(gitFile)) {
+		// Apply patch (handle case where patch might already be applied)
+		printStatus("Applying JetBrains patch...")
+		const originalDir = process.cwd()
+		try {
+			process.chdir(vscodeDir)
+			const relativePatchPath = path.relative(vscodeDir, patchFile)
 
-		// Try applying the patch, but don't fail if it's already applied
-		const patchResult = runCommand(`git apply ${relativePatchPath}`)
-		if (patchResult === null) {
-			// Check if we have modified files (patch might be already applied)
-			const statusResult = runCommand("git status --porcelain")
-			if (statusResult && statusResult.length > 0) {
-				printSuccess("JetBrains patch already applied")
+			// Try applying the patch, but don't fail if it's already applied
+			const patchResult = runCommand(`git apply ${relativePatchPath}`)
+			if (patchResult === null) {
+				// Check if we have modified files (patch might be already applied)
+				const statusResult = runCommand("git status --porcelain")
+				if (statusResult && statusResult.length > 0) {
+					printSuccess("JetBrains patch already applied")
+				} else {
+					printWarning("Patch may already be applied or failed - continuing anyway")
+				}
 			} else {
-				printWarning("Patch may already be applied or failed - continuing anyway")
+				printSuccess("JetBrains patch applied successfully")
 			}
-		} else {
-			printSuccess("JetBrains patch applied successfully")
-		}
 
-		// Disable git tracking
-		const gitFile = path.join(vscodeDir, ".git")
-		const gitDisabledFile = path.join(vscodeDir, ".git.disabled")
-		if (fs.existsSync(gitFile) && !fs.existsSync(gitDisabledFile)) {
-			fs.renameSync(gitFile, gitDisabledFile)
-			printFix("Disabled git tracking for VSCode directory")
+			// Disable git tracking
+			if (!fs.existsSync(gitDisabledFile)) {
+				fs.renameSync(gitFile, gitDisabledFile)
+				printFix("Disabled git tracking for VSCode directory")
+			}
+		} finally {
+			process.chdir(originalDir)
 		}
-
-		printSuccess("VSCode directory is ready")
-		return true
-	} finally {
-		process.chdir(originalDir)
+	} else if (fs.existsSync(gitDisabledFile)) {
+		printSuccess("Git tracking already disabled for VSCode directory")
 	}
+
+	printSuccess("VSCode directory is ready")
+	return true
 }
 
 function checkProjectDependencies() {
