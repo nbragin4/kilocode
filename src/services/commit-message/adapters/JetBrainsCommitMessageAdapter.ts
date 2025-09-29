@@ -1,40 +1,26 @@
 // kilocode_change - new file
 import { ICommitMessageAdapter } from "./ICommitMessageAdapter"
+import { BaseCommitMessageAdapter } from "./BaseCommitMessageAdapter"
 import { CommitMessageRequest, CommitMessageResult, ProgressUpdate } from "../types/core"
 import { GitExtensionService, GitChange } from "../GitExtensionService"
 import { CommitMessageGenerator } from "../CommitMessageGenerator"
 
-/**
- * JetBrains-specific adapter for commit message generation.
- */
-export class JetBrainsCommitMessageAdapter implements ICommitMessageAdapter {
-	private gitService: GitExtensionService | null = null
-	private currentWorkspaceRoot: string | null = null
-
-	constructor(private messageGenerator: CommitMessageGenerator) {}
+export class JetBrainsCommitMessageAdapter extends BaseCommitMessageAdapter implements ICommitMessageAdapter {
+	constructor(private messageGenerator: CommitMessageGenerator) {
+		super()
+	}
 
 	async generateCommitMessage(request: CommitMessageRequest): Promise<CommitMessageResult> {
 		try {
 			const { workspacePath } = request
 			let { selectedFiles } = request
 
-			if (this.currentWorkspaceRoot !== workspacePath) {
-				this.gitService?.dispose()
-				this.gitService = new GitExtensionService(workspacePath)
-				this.currentWorkspaceRoot = workspacePath
-			}
-
-			if (!this.gitService) {
-				return {
-					message: "",
-					error: "Failed to initialize Git service",
-				}
-			}
+			const gitService = this.initializeGitService(workspacePath)
 
 			if (!selectedFiles || selectedFiles.length === 0) {
-				let allChanges = await this.gitService.gatherChanges({ staged: true })
+				let allChanges = await gitService.gatherChanges({ staged: true })
 				if (allChanges.length === 0) {
-					allChanges = await this.gitService.gatherChanges({ staged: false })
+					allChanges = await gitService.gatherChanges({ staged: false })
 				}
 				selectedFiles = allChanges.map((change) => change.filePath)
 			}
@@ -58,7 +44,7 @@ export class JetBrainsCommitMessageAdapter implements ICommitMessageAdapter {
 			const normalizedSelectedFiles = changes.map((change) => change.filePath)
 
 			const defaultStaged = changes.every((change) => change.staged === false) ? false : true
-			const gitContext = await this.gitService.getCommitContext(
+			const gitContext = await gitService.getCommitContext(
 				changes,
 				{ staged: defaultStaged, includeRepoContext: true },
 				normalizedSelectedFiles,
@@ -123,11 +109,5 @@ export class JetBrainsCommitMessageAdapter implements ICommitMessageAdapter {
 		return () => {
 			// Future: send progress updates to JetBrains via RPC
 		}
-	}
-
-	dispose(): void {
-		this.gitService?.dispose()
-		this.gitService = null
-		this.currentWorkspaceRoot = null
 	}
 }

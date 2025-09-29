@@ -2,16 +2,11 @@
 import { CommitMessageRequest, CommitMessageResult } from "../types/core"
 
 /**
- * Simplified interface for IDE-specific commit message adapters.
+ * Interface for IDE-specific commit message adapters.
  */
 export interface ICommitMessageAdapter {
 	/**
-	 * Generate a commit message for the given request.
-	 * This handles the complete flow internally:
-	 * - File selection/discovery (VS Code) or validation (JetBrains)
-	 * - Progress reporting during generation
-	 * - Calling the AI to generate the message
-	 * - Setting the message in the appropriate IDE location
+	 * Generate commit message handling file discovery, AI generation, and IDE integration.
 	 */
 	generateCommitMessage(request: CommitMessageRequest): Promise<CommitMessageResult>
 }

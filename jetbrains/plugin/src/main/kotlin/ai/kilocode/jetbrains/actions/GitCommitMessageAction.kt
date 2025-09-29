@@ -12,6 +12,7 @@ import ai.kilocode.jetbrains.i18n.I18n
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
@@ -24,10 +25,6 @@ import com.intellij.openapi.vcs.changes.ChangeListManager
 import com.intellij.openapi.vcs.ui.CommitMessage
 import kotlinx.coroutines.runBlocking
 
-/**
- * Simplified action for AI-powered commit message generation.
- * Delegates file discovery to FileDiscoveryService and uses simplified threading model.
- */
 class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.generateButton")) {
     private val logger: Logger = Logger.getInstance(GitCommitMessageAction::class.java)
     private val commitMessageService = CommitMessageService.getInstance()

@@ -1,25 +1,23 @@
 // kilocode_change - new file
 import * as vscode from "vscode"
 import { ICommitMessageAdapter } from "./ICommitMessageAdapter"
+import { BaseCommitMessageAdapter } from "./BaseCommitMessageAdapter"
 import { CommitMessageRequest, CommitMessageResult, MessageType, ProgressReporter } from "../types/core"
 import { VscGenerationRequest, VSCodeMessageTypeMap } from "../types/vscode"
 import { GitExtensionService, GitChange } from "../GitExtensionService"
 import { t } from "../../../i18n"
 import { CommitMessageGenerator } from "../CommitMessageGenerator"
 
-/**
- * VSCode-specific adapter for commit message generation.
- */
-export class VSCodeCommitMessageAdapter implements ICommitMessageAdapter {
+export class VSCodeCommitMessageAdapter extends BaseCommitMessageAdapter implements ICommitMessageAdapter {
 	private targetRepository: VscGenerationRequest | null = null
-	private currentWorkspaceRoot: string | null = null
-	private gitService: GitExtensionService | null = null
 
 	constructor(
 		private context: vscode.ExtensionContext,
 		private outputChannel: vscode.OutputChannel,
 		private messageGenerator: CommitMessageGenerator,
-	) {}
+	) {
+		super()
+	}
 
 	async generateCommitMessage(request: CommitMessageRequest): Promise<CommitMessageResult> {
 		try {
@@ -51,9 +49,7 @@ export class VSCodeCommitMessageAdapter implements ICommitMessageAdapter {
 						}
 
 						if (!selection.usedStaged && selection.files.length > 0) {
-							this.showMessage(t("kilocode:commitMessage.generatingFromUnstaged"), "info").catch(
-								console.error,
-							)
+							this.showMessage(t("kilocode:commitMessage.generatingFromUnstaged"), "info").catch(() => {})
 						}
 
 						reporter.report({ increment: 15, message: t("kilocode:commitMessage.generating") })
@@ -119,7 +115,6 @@ export class VSCodeCommitMessageAdapter implements ICommitMessageAdapter {
 				try {
 					await gitExtension.activate()
 				} catch (activationError) {
-					console.error("Failed to activate Git extension:", activationError)
 					return null
 				}
 			}
@@ -175,10 +170,8 @@ export class VSCodeCommitMessageAdapter implements ICommitMessageAdapter {
 		return { changes, staged }
 	}
 
-	dispose(): void {
-		this.gitService?.dispose()
-		this.gitService = null
-		this.currentWorkspaceRoot = null
+	override dispose(): void {
+		super.dispose()
 		this.targetRepository = null
 	}
 }

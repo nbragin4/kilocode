@@ -9,15 +9,16 @@ import { GitProgressOptions, GitChange, GitOptions, GitStatus } from "./types"
 // Re-export types for backward compatibility
 export type { GitChange, GitOptions, GitProgressOptions } from "./types"
 
-/**
- * Utility class for Git operations using direct shell commands
- */
 export class GitExtensionService {
 	private ignoreController: RooIgnoreController | null = null
 
 	constructor(private workspaceRoot: string) {
-		this.ignoreController = new RooIgnoreController(workspaceRoot)
-		this.ignoreController.initialize()
+		try {
+			this.ignoreController = new RooIgnoreController(workspaceRoot)
+			this.ignoreController.initialize()
+		} catch (error) {
+			this.ignoreController = null
+		}
 	}
 
 	/**
@@ -362,7 +363,15 @@ export class GitExtensionService {
 		return staged ? ["diff", "--cached", "--", filePath] : ["diff", "--", filePath]
 	}
 
-	public dispose() {
-		this.ignoreController?.dispose()
+	public dispose(): void {
+		try {
+			if (this.ignoreController) {
+				this.ignoreController.dispose()
+			}
+		} catch (error) {
+			// Ignore dispose errors
+		} finally {
+			this.ignoreController = null
+		}
 	}
 }

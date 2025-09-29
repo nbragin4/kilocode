@@ -3,7 +3,6 @@ import { CommitMessageGenerator } from "../CommitMessageGenerator"
 import { ProviderSettingsManager } from "../../../core/config/ProviderSettingsManager"
 import { GenerateMessageParams, ProgressUpdate } from "../types/core"
 
-// Create simple integration test without complex mocking
 describe("CommitMessageGenerator", () => {
 	let generator: CommitMessageGenerator
 	let mockProviderSettingsManager: ProviderSettingsManager
@@ -63,11 +62,9 @@ index 0000000..123
 				onProgress: (progress) => progressUpdates.push(progress),
 			}
 
-			// Verify parameters structure is correct
 			expect(params.onProgress).toBeDefined()
 			expect(typeof params.onProgress).toBe("function")
 
-			// Test progress callback works
 			params.onProgress?.({
 				stage: "ai-generation",
 				message: "test progress",
