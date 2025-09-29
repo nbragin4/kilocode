@@ -150,7 +150,6 @@ describe("GitExtensionService", () => {
 			const result = await service.gatherChanges({ staged: false })
 
 			expect(mockSpawnSync).toHaveBeenCalledWith("git", ["status", "--porcelain"], expect.any(Object))
-
 			expect(result).toEqual([
 				{ filePath: path.join("/test/workspace", "file1.ts"), status: "M", staged: false },
 				{ filePath: path.join("/test/workspace", "file2.ts"), status: "A", staged: false },
@@ -165,7 +164,6 @@ describe("GitExtensionService", () => {
 			const result = await service.gatherChanges({ staged: true })
 
 			expect(mockSpawnSync).toHaveBeenCalledWith("git", ["diff", "--name-status", "--cached"], expect.any(Object))
-
 			expect(result).toEqual([
 				{ filePath: path.join("/test/workspace", "file1.ts"), status: "M", staged: true },
 				{ filePath: path.join("/test/workspace", "file2.ts"), status: "A", staged: true },

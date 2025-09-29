@@ -1,3 +1,4 @@
+// kilocode_change - new file
 import * as vscode from "vscode"
 import { ICommitMessageAdapter } from "./ICommitMessageAdapter"
 import { CommitMessageRequest, CommitMessageResult, MessageType, ProgressReporter } from "../types/core"
@@ -8,8 +9,6 @@ import { CommitMessageGenerator } from "../CommitMessageGenerator"
 
 /**
  * VSCode-specific adapter for commit message generation.
- * Handles all VSCode integrations including Git extension, progress reporting,
- * and user notifications while delegating message generation to CommitMessageGenerator.
  */
 export class VSCodeCommitMessageAdapter implements ICommitMessageAdapter {
 	private targetRepository: VscGenerationRequest | null = null
@@ -43,7 +42,6 @@ export class VSCodeCommitMessageAdapter implements ICommitMessageAdapter {
 					}
 
 					try {
-						// Step 1: Get selected files (staged first, fallback to unstaged)
 						reporter.report({ increment: 5, message: t("kilocode:commitMessage.generating") })
 						const selection = await this.getSelectedChanges(workspaceRoot)
 
@@ -52,15 +50,12 @@ export class VSCodeCommitMessageAdapter implements ICommitMessageAdapter {
 							return { message: "", error: "No changes found" }
 						}
 
-						// Check if we're using unstaged files and inform user
 						if (!selection.usedStaged && selection.files.length > 0) {
-							// Don't await - this can block the process
 							this.showMessage(t("kilocode:commitMessage.generatingFromUnstaged"), "info").catch(
 								console.error,
 							)
 						}
 
-						// Step 2: Get git context for selected files
 						reporter.report({ increment: 15, message: t("kilocode:commitMessage.generating") })
 
 						const gitContext = await this.gitService!.getCommitContext(
@@ -69,14 +64,12 @@ export class VSCodeCommitMessageAdapter implements ICommitMessageAdapter {
 							selection.files,
 						)
 
-						// Step 3: Generate commit message using the generator
 						reporter.report({ increment: 10, message: t("kilocode:commitMessage.generating") })
 						const generatedMessage = await this.messageGenerator.generateMessage({
 							workspacePath: workspaceRoot,
 							selectedFiles: selection.files,
 							gitContext,
 							onProgress: (update) => {
-								// AI generation takes up 60% of progress (30-90%)
 								if (update.increment) {
 									const scaledIncrement = Math.round(update.increment * 0.6)
 									reporter.report({ increment: scaledIncrement, message: update.message })
@@ -84,11 +77,9 @@ export class VSCodeCommitMessageAdapter implements ICommitMessageAdapter {
 							},
 						})
 
-						// Step 4: Set the generated message in VSCode
 						reporter.report({ increment: 10, message: t("kilocode:commitMessage.progress.generating") })
 						await this.setCommitMessage(generatedMessage)
 
-						// Complete progress
 						reporter.report({ increment: 0, message: t("kilocode:commitMessage.generated") })
 
 						return { message: generatedMessage }
@@ -144,7 +135,7 @@ export class VSCodeCommitMessageAdapter implements ICommitMessageAdapter {
 				}
 			}
 
-			return gitApi.repositories[0] ?? null // Fallback to first repository if available
+			return gitApi.repositories[0] ?? null
 		} catch (error) {
 			console.error("Error determining target repository:", error)
 			return null

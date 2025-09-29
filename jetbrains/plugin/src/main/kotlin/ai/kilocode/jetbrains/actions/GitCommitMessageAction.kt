@@ -2,18 +2,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+// kilocode_change - new file
 package ai.kilocode.jetbrains.actions
 
 import ai.kilocode.jetbrains.git.CommitMessageService
 import ai.kilocode.jetbrains.git.WorkspaceResolver
+import ai.kilocode.jetbrains.git.FileDiscoveryService
 import ai.kilocode.jetbrains.i18n.I18n
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ModalityState
-import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -21,40 +20,23 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vcs.VcsDataKeys
-import com.intellij.openapi.vcs.CheckinProjectPanel
-import com.intellij.openapi.vcs.changes.Change
 import com.intellij.openapi.vcs.changes.ChangeListManager
-import com.intellij.openapi.vcs.changes.ui.ChangesListView
-import com.intellij.openapi.vcs.changes.ui.VcsTreeModelData
 import com.intellij.openapi.vcs.ui.CommitMessage
-import com.intellij.openapi.vcs.ui.Refreshable
-import com.intellij.openapi.wm.ToolWindowManager
-import com.intellij.vcs.commit.AbstractCommitWorkflowHandler
-import com.intellij.vcs.commit.ChangesViewCommitPanel
 import kotlinx.coroutines.runBlocking
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.TimeUnit
 
 /**
- * Action that generates AI-powered commit messages for Git repositories.
- * Integrates with JetBrains VCS system to detect changes and uses RPC
- * communication to call the VSCode extension's commit message generation.
+ * Simplified action for AI-powered commit message generation.
+ * Delegates file discovery to FileDiscoveryService and uses simplified threading model.
  */
 class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.generateButton")) {
     private val logger: Logger = Logger.getInstance(GitCommitMessageAction::class.java)
     private val commitMessageService = CommitMessageService.getInstance()
+    private val fileDiscoveryService = FileDiscoveryService()
 
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.BGT
     }
 
-    /**
-     * Updates the action's presentation based on the current project state.
-     * The action is enabled when there are any Git changes available.
-     * File selection checking is handled during action execution to avoid EDT issues.
-     *
-     * @param e The action event containing context information
-     */
     override fun update(e: AnActionEvent) {
         val project = e.project
         val presentation = e.presentation
@@ -65,7 +47,6 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
             return
         }
 
-        // Simple check for any changes - avoid accessing UI components on BGT
         val changeListManager = ChangeListManager.getInstance(project)
         val hasAnyChanges = changeListManager.allChanges.isNotEmpty()
 
@@ -77,19 +58,12 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
         }
     }
 
-    /**
-     * Performs the action when the Generate Commit Message action is triggered.
-     * Uses comprehensive multi-context detection to handle both toolbar and dialog invocations.
-     *
-     * @param e The action event containing context information
-     */
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project
         if (project == null) {
             logger.warn("No project available for commit message generation")
             return
         }
-        logger.info("Generate Commit Message action triggered")
 
         val workspacePath = WorkspaceResolver.getWorkspacePathOrShowError(
             project,
@@ -97,64 +71,25 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
             I18n.t("kilocode:commitMessage.dialogs.error"),
         ) ?: return
 
-        // Capture dataContext for background use
         val dataContext = e.dataContext
+        val commitControl = VcsDataKeys.COMMIT_MESSAGE_CONTROL.getData(dataContext)
 
-        // Run file detection and processing on background thread to avoid UI freezing
-        ApplicationManager.getApplication().executeOnPooledThread {
-            try {
-                // Try comprehensive file detection using multiple approaches
-                val checkedFiles = ApplicationManager.getApplication().runReadAction<List<String>> {
-                    getCheckedFilesComprehensive(project, dataContext)
-                }
-
-                // Check if we're in commit dialog context - must be done on EDT
-                ApplicationManager.getApplication().invokeLater {
-                    val commitControl = VcsDataKeys.COMMIT_MESSAGE_CONTROL.getData(dataContext)
-                    if (commitControl is CommitMessage) {
-                        // We're in the commit dialog - generate and set message directly
-                        generateAndSetCommitMessage(project, commitControl, checkedFiles, workspacePath)
-                    } else {
-                        // Toolbar click or no dialog context - use files we found or get all available changes
-                        val finalFiles = if (checkedFiles.isEmpty()) {
-                            // Try to get from tool window first
-                            val toolWindowFiles = getFilesFromCommitToolWindow(project)
-                            if (toolWindowFiles.isNotEmpty()) {
-                                toolWindowFiles
-                            } else {
-                                // Get ALL available changes from JetBrains instead of letting TypeScript discover them
-                                getAllAvailableChanges(project)
-                            }
-                        } else {
-                            checkedFiles
-                        }
-                        
-                        processWithFiles(project, workspacePath, finalFiles)
-                    }
-                }
-            } catch (ex: Exception) {
-                logger.error("Error in background file detection", ex)
-                
-                // Show error on EDT
-                ApplicationManager.getApplication().invokeLater {
-                    val message = I18n.t("kilocode:commitMessage.errors.unexpectedError", "details" to ex.localizedMessage)
-                    Messages.showErrorDialog(project, message, "Commit Message Generation Error")
-                }
+        when {
+            commitControl is CommitMessage -> {
+                generateAndSetCommitMessage(project, commitControl, workspacePath, dataContext)
+            }
+            else -> {
+                generateAndOpenCommitDialog(project, workspacePath, dataContext)
             }
         }
     }
 
-    /**
-     * Generates and sets commit message directly in the commit dialog.
-     * This is called when the button is clicked from within the commit dialog.
-     */
     private fun generateAndSetCommitMessage(
         project: Project,
         commitControl: CommitMessage,
-        checkedFiles: List<String>,
-        workspacePath: String
+        workspacePath: String,
+        dataContext: DataContext
     ) {
-        // Execute commit message generation with progress indication
         ProgressManager.getInstance().run(object : Task.Backgroundable(
             project,
             I18n.t("kilocode:commitMessage.progress.title"),
@@ -165,21 +100,23 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                 indicator.isIndeterminate = true
 
                 try {
-                    val result = runBlocking {
-                        indicator.text = I18n.t("kilocode:commitMessage.progress.generating")
-                        
-                        // Use the detected files or empty list for all changes
-                        commitMessageService.generateCommitMessage(project, workspacePath, checkedFiles)
+                    val discoveryResult = fileDiscoveryService.discoverFiles(project, dataContext)
+                    val files = when (discoveryResult) {
+                        is FileDiscoveryService.FileDiscoveryResult.Success -> discoveryResult.files
+                        FileDiscoveryService.FileDiscoveryResult.NoFiles -> emptyList()
                     }
 
-                    ApplicationManager.getApplication().invokeLater({
+                    indicator.text = I18n.t("kilocode:commitMessage.progress.generating")
+                    val result = runBlocking {
+                        commitMessageService.generateCommitMessage(project, workspacePath, files.ifEmpty { null })
+                    }
+
+                    ApplicationManager.getApplication().invokeLater {
                         when (result) {
                             is CommitMessageService.Result.Success -> {
-                                logger.info("Successfully generated and set commit message: ${result.message}")
                                 commitControl.setCommitMessage(result.message)
                             }
                             is CommitMessageService.Result.Error -> {
-                                logger.warn("Commit message generation failed: ${result.errorMessage}")
                                 Messages.showErrorDialog(
                                     project,
                                     result.errorMessage,
@@ -187,26 +124,23 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                                 )
                             }
                         }
-                    }, ModalityState.defaultModalityState())
+                    }
                 } catch (e: Exception) {
                     logger.error("Error generating commit message", e)
-                    ApplicationManager.getApplication().invokeLater({
+                    ApplicationManager.getApplication().invokeLater {
                         Messages.showErrorDialog(
                             project,
-                            I18n.t("kilocode:commitMessage.errors.processingError", mapOf("error" to (e.message ?: I18n.t("kilocode:commitMessage.error.unknown")))),
+                            I18n.t("kilocode:commitMessage.errors.processingError",
+                                mapOf("error" to (e.message ?: I18n.t("kilocode:commitMessage.error.unknown")))),
                             I18n.t("kilocode:commitMessage.dialogs.error"),
                         )
-                    }, ModalityState.defaultModalityState())
+                    }
                 }
             }
         })
     }
 
-    /**
-     * Process files with commit message generation.
-     * This handles both toolbar clicks and cases where files are already detected.
-     */
-    private fun processWithFiles(project: Project, workspacePath: String, files: List<String>) {
+    private fun generateAndOpenCommitDialog(project: Project, workspacePath: String, dataContext: DataContext) {
         ProgressManager.getInstance().run(object : Task.Backgroundable(
             project,
             I18n.t("kilocode:commitMessage.progress.title"),
@@ -217,261 +151,66 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                 indicator.isIndeterminate = true
 
                 try {
-                    // Run generation on background thread
-                    ApplicationManager.getApplication().executeOnPooledThread {
-                        try {
-                            val result = runBlocking {
-                                indicator.text = I18n.t("kilocode:commitMessage.progress.generating")
-                                commitMessageService.generateCommitMessage(project, workspacePath, files.ifEmpty { null })
+                    val discoveryResult = fileDiscoveryService.discoverFiles(project, dataContext)
+                    val files = when (discoveryResult) {
+                        is FileDiscoveryService.FileDiscoveryResult.Success -> discoveryResult.files
+                        FileDiscoveryService.FileDiscoveryResult.NoFiles -> emptyList()
+                    }
+
+                    indicator.text = I18n.t("kilocode:commitMessage.progress.generating")
+                    val result = runBlocking {
+                        commitMessageService.generateCommitMessage(project, workspacePath, files.ifEmpty { null })
+                    }
+
+                    ApplicationManager.getApplication().invokeLater {
+                        when (result) {
+                            is CommitMessageService.Result.Success -> {
+                                openCommitDialogWithMessage(project, result.message)
                             }
-                            
-                            // Handle result on EDT
-                            ApplicationManager.getApplication().invokeLater({
-                                when (result) {
-                                    is CommitMessageService.Result.Success -> {
-                                        logger.info("Successfully generated commit message, opening dialog: ${result.message}")
-                                        openCommitDialogWithMessage(project, result.message)
-                                    }
-                                    is CommitMessageService.Result.Error -> {
-                                        logger.warn("Commit message generation failed: ${result.errorMessage}")
-                                        Messages.showErrorDialog(
-                                            project,
-                                            result.errorMessage,
-                                            I18n.t("kilocode:commitMessage.dialogs.error"),
-                                        )
-                                    }
-                                }
-                            }, ModalityState.defaultModalityState())
-                        } catch (e: Exception) {
-                            logger.error("Error during generation", e)
-                            ApplicationManager.getApplication().invokeLater({
+                            is CommitMessageService.Result.Error -> {
                                 Messages.showErrorDialog(
                                     project,
-                                    I18n.t("kilocode:commitMessage.errors.processingError", mapOf("error" to (e.message ?: I18n.t("kilocode:commitMessage.error.unknown")))),
+                                    result.errorMessage,
                                     I18n.t("kilocode:commitMessage.dialogs.error"),
                                 )
-                            }, ModalityState.defaultModalityState())
+                            }
                         }
                     }
                 } catch (e: Exception) {
-                    logger.error("Error starting generation", e)
-                    ApplicationManager.getApplication().invokeLater({
+                    logger.error("Error generating commit message", e)
+                    ApplicationManager.getApplication().invokeLater {
                         Messages.showErrorDialog(
                             project,
-                            I18n.t("kilocode:commitMessage.errors.processingError", mapOf("error" to (e.message ?: I18n.t("kilocode:commitMessage.error.unknown")))),
+                            I18n.t("kilocode:commitMessage.errors.processingError",
+                                mapOf("error" to (e.message ?: I18n.t("kilocode:commitMessage.error.unknown")))),
                             I18n.t("kilocode:commitMessage.dialogs.error"),
                         )
-                    }, ModalityState.defaultModalityState())
+                    }
                 }
             }
         })
     }
 
-    /**
-     * Opens the commit dialog with the pre-generated message.
-     */
     private fun openCommitDialogWithMessage(project: Project, message: String) {
         try {
-            // Use ActionManager to trigger the commit action
             val actionManager = com.intellij.openapi.actionSystem.ActionManager.getInstance()
             val commitAction = actionManager.getAction("CheckinProject")
 
             if (commitAction != null) {
-                // Store the message to be set when the dialog opens
                 project.putUserData(PENDING_COMMIT_MESSAGE_KEY, message)
-
-                // Create action event and trigger commit dialog
                 val dataContext = com.intellij.openapi.actionSystem.impl.SimpleDataContext.getProjectContext(project)
                 val actionEvent = com.intellij.openapi.actionSystem.AnActionEvent.createFromDataContext(
                     "GitCommitMessageAction",
                     null,
                     dataContext,
                 )
-
                 commitAction.actionPerformed(actionEvent)
-                logger.info("Opened commit dialog, message will be set by handler")
-            } else {
-                logger.error("CheckinProject action not found - commit message generation failed")
             }
         } catch (e: Exception) {
-            logger.error("Failed to open commit dialog - commit message generation failed", e)
+            logger.error("Failed to open commit dialog", e)
         }
     }
 
-    /**
-     * Comprehensive method that tries ALL possible ways to get checked files
-     * from different JetBrains commit contexts. Based on AI Commits plugin patterns.
-     */
-    private fun getCheckedFilesComprehensive(
-        project: Project,
-        dataContext: DataContext
-    ): List<String> {
-        
-        // Method 1: Try CommitWorkflowHandler (works for modern workflows)
-        val workflowHandler = dataContext.getData(VcsDataKeys.COMMIT_WORKFLOW_HANDLER)
-        if (workflowHandler is AbstractCommitWorkflowHandler<*, *>) {
-            try {
-                val changes = workflowHandler.ui.getIncludedChanges()
-                val paths = changes.mapNotNull { it.virtualFile?.path }
-                if (paths.isNotEmpty()) {
-                    return paths
-                }
-            } catch (e: Exception) {
-                logger.debug("CommitWorkflowHandler failed: ${e.message}")
-            }
-        }
-        
-        // Method 2: Try CheckinProjectPanel (legacy support)
-        val refreshable = dataContext.getData(Refreshable.PANEL_KEY)
-        if (refreshable is CheckinProjectPanel) {
-            try {
-                // Must be on EDT for this
-                val futureResult = CompletableFuture<List<String>>()
-                ApplicationManager.getApplication().invokeLater {
-                    try {
-                        val selectedChanges = refreshable.selectedChanges
-                        val paths = selectedChanges.mapNotNull { it.virtualFile?.path }
-                        futureResult.complete(paths)
-                    } catch (e: Exception) {
-                        futureResult.complete(emptyList())
-                    }
-                }
-                val paths = futureResult.get(5, TimeUnit.SECONDS) // Wait for EDT operation
-                if (paths.isNotEmpty()) {
-                    return paths
-                }
-            } catch (e: Exception) {
-                logger.debug("CheckinProjectPanel failed: ${e.message}")
-            }
-        }
-        
-        // Method 3: Try ChangesListView (Non-modal commit window)
-        val changesView = dataContext.getData(ChangesListView.DATA_KEY)
-        if (changesView != null) {
-            try {
-                val futureResult = CompletableFuture<List<String>>()
-                ApplicationManager.getApplication().invokeLater {
-                    try {
-                        val includedChanges = VcsTreeModelData.included(changesView)
-                            .userObjects(Change::class.java)
-                        val paths = includedChanges.mapNotNull { it.virtualFile?.path }
-                        futureResult.complete(paths)
-                    } catch (e: Exception) {
-                        futureResult.complete(emptyList())
-                    }
-                }
-                val paths = futureResult.get(5, TimeUnit.SECONDS)
-                if (paths.isNotEmpty()) {
-                    return paths
-                }
-            } catch (e: Exception) {
-                logger.debug("ChangesListView failed: ${e.message}")
-            }
-        }
-        
-        // Method 4: Try to get from the commit message control
-        val commitControl = VcsDataKeys.COMMIT_MESSAGE_CONTROL.getData(dataContext)
-        if (commitControl is CommitMessage) {
-            // We're in commit dialog context
-            val workflowHandlerFromControl = VcsDataKeys.COMMIT_WORKFLOW_HANDLER.getData(dataContext)
-            if (workflowHandlerFromControl is AbstractCommitWorkflowHandler<*, *>) {
-                try {
-                    val changes = workflowHandlerFromControl.ui.getIncludedChanges()
-                    val paths = changes.mapNotNull { it.virtualFile?.path }
-                    if (paths.isNotEmpty()) {
-                        return paths
-                    }
-                } catch (e: Exception) {
-                    logger.debug("CommitMessage control context failed: ${e.message}")
-                }
-            }
-        }
-        
-        return emptyList()
-    }
-
-    /**
-     * Try to get files from the commit tool window when toolbar is clicked
-     */
-    private fun getFilesFromCommitToolWindow(project: Project): List<String> {
-        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Commit")
-            ?: ToolWindowManager.getInstance(project).getToolWindow("Version Control")
-            ?: return emptyList()
-        
-        val content = toolWindow.contentManager.selectedContent ?: return emptyList()
-        val component = content.component
-        
-        // Handle different commit panel types
-        return when (component) {
-            is ChangesViewCommitPanel -> {
-                val futureResult = CompletableFuture<List<String>>()
-                ApplicationManager.getApplication().invokeLater {
-                    try {
-                        val changes = component.getIncludedChanges()
-                        val paths = changes.mapNotNull { it.virtualFile?.path }
-                        futureResult.complete(paths)
-                    } catch (e: Exception) {
-                        logger.debug("Error accessing ChangesViewCommitPanel: ${e.message}")
-                        futureResult.complete(emptyList())
-                    }
-                }
-                try {
-                    futureResult.get(5, TimeUnit.SECONDS)
-                } catch (e: Exception) {
-                    emptyList()
-                }
-            }
-            else -> {
-                // Try to find commit panel in component hierarchy
-                emptyList()
-            }
-        }
-    }
-
-    /**
-     * Get ALL available changes that JetBrains knows about.
-     * This ensures we get the same files that JetBrains UI shows, rather than
-     * relying on TypeScript-side git discovery.
-     */
-    private fun getAllAvailableChanges(project: Project): List<String> {
-        val changeListManager = ChangeListManager.getInstance(project)
-        val allChanges = mutableListOf<String>()
-        
-        try {
-            // Get all changes from all change lists (this includes staged, unstaged, and modified files)
-            for (change in changeListManager.allChanges) {
-                change.virtualFile?.path?.let { path ->
-                    allChanges.add(path)
-                }
-            }
-            
-            // Get modified files that might not be in changes yet
-            for (file in changeListManager.modifiedWithoutEditing) {
-                val path = file.path
-                if (!allChanges.contains(path)) {
-                    allChanges.add(path)
-                }
-            }
-            
-            // Try to get unversioned files from different change lists
-            for (changeList in changeListManager.changeLists) {
-                for (change in changeList.changes) {
-                    change.virtualFile?.path?.let { path ->
-                        if (!allChanges.contains(path)) {
-                            allChanges.add(path)
-                        }
-                    }
-                }
-            }
-            
-            return allChanges.distinct()
-            
-        } catch (e: Exception) {
-            logger.debug("Error getting all changes: ${e.message}")
-            // If all else fails, fall back to empty list - the TypeScript side can handle discovery
-            return emptyList()
-        }
-    }
 
     companion object {
         val PENDING_COMMIT_MESSAGE_KEY = com.intellij.openapi.util.Key.create<String>("KILOCODE_PENDING_COMMIT_MESSAGE")

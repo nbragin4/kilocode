@@ -10,7 +10,6 @@ import { GenerateMessageParams, PromptOptions, ProgressUpdate } from "./types/co
 
 /**
  * Pure commit message generation logic without IDE-specific dependencies.
- * Handles AI integration, prompt building, and response processing.
  */
 export class CommitMessageGenerator {
 	private readonly providerSettingsManager: ProviderSettingsManager
@@ -25,7 +24,6 @@ export class CommitMessageGenerator {
 		const { gitContext, onProgress } = params
 
 		try {
-			// Report progress: starting AI generation
 			onProgress?.({
 				stage: "ai-generation",
 				message: "Generating commit message...",
@@ -34,14 +32,11 @@ export class CommitMessageGenerator {
 
 			const generatedMessage = await this.callAIForCommitMessage(gitContext, onProgress)
 
-			// Store context for potential regeneration requests
 			this.previousGitContext = gitContext
 			this.previousCommitMessage = generatedMessage
 
-			// Report telemetry
 			TelemetryService.instance.captureEvent(TelemetryEventName.COMMIT_MSG_GENERATED)
 
-			// Report progress: completion
 			onProgress?.({
 				stage: "completion",
 				message: "Commit message generated successfully",
@@ -58,29 +53,18 @@ export class CommitMessageGenerator {
 	async buildPrompt(gitContext: string, options: PromptOptions): Promise<string> {
 		const { customSupportPrompts = {}, previousContext, previousMessage } = options
 
-		// Load custom instructions including rules
-		// Note: For pure generator, we pass empty workspace path since we don't have IDE context
-		// This should be enhanced by the adapter to provide workspace-specific context
-		const customInstructions = await addCustomInstructions(
-			"", // no mode-specific instructions for commit
-			"", // no global custom instructions
-			"", // workspacePath - to be provided by adapter
-			"commit", // mode for commit-specific rules
-			{
-				language: "en", // default language, should be configurable by adapter
-				localRulesToggleState: undefined, // to be provided by adapter
-				globalRulesToggleState: undefined, // to be provided by adapter
-			},
-		)
+		const customInstructions = await addCustomInstructions("", "", "", "commit", {
+			language: "en",
+			localRulesToggleState: undefined,
+			globalRulesToggleState: undefined,
+		})
 
-		// Check if we should generate a different message than the previous one
 		const shouldGenerateDifferentMessage =
 			(previousContext === gitContext || this.previousGitContext === gitContext) &&
 			(previousMessage !== null || this.previousCommitMessage !== null)
 
 		const targetPreviousMessage = previousMessage || this.previousCommitMessage
 
-		// Create prompt with different message logic if needed
 		if (shouldGenerateDifferentMessage && targetPreviousMessage) {
 			const differentMessagePrefix = `# CRITICAL INSTRUCTION: GENERATE A COMPLETELY DIFFERENT COMMIT MESSAGE
 The user has requested a new commit message for the same changes.
@@ -135,7 +119,6 @@ FINAL REMINDER: Your message MUST be COMPLETELY DIFFERENT from the previous mess
 		const listApiConfigMeta = contextProxy.getValue("listApiConfigMeta") || []
 		const customSupportPrompts = contextProxy.getValue("customSupportPrompts") || {}
 
-		// Try to get commit message config first, fall back to current config.
 		let configToUse: ProviderSettings = apiConfiguration
 
 		if (
@@ -151,18 +134,16 @@ FINAL REMINDER: Your message MUST be COMPLETELY DIFFERENT from the previous mess
 					configToUse = providerSettings
 				}
 			} catch (error) {
-				// Fall back to default configuration if profile doesn't exist
+				// Fall back to default configuration
 			}
 		}
 
-		// Build prompt with current context - filter out undefined values
 		const filteredPrompts = Object.fromEntries(
 			Object.entries(customSupportPrompts).filter(([_, value]) => value !== undefined),
 		) as Record<string, string>
 
 		const prompt = await this.buildPrompt(gitContextString, { customSupportPrompts: filteredPrompts })
 
-		// Report progress before AI call
 		onProgress?.({
 			stage: "ai-generation",
 			message: "Calling AI service...",
@@ -171,28 +152,19 @@ FINAL REMINDER: Your message MUST be COMPLETELY DIFFERENT from the previous mess
 
 		const response = await singleCompletionHandler(configToUse, prompt)
 
-		// Report progress after AI call
 		onProgress?.({
 			stage: "ai-generation",
 			message: "Processing AI response...",
 			increment: 10,
 		})
 
-		const result = this.extractCommitMessage(response)
-
-		return result
+		return this.extractCommitMessage(response)
 	}
 
 	private extractCommitMessage(response: string): string {
-		// Clean up the response by removing any extra whitespace or formatting
 		const cleaned = response.trim()
-
-		// Remove any code block markers
 		const withoutCodeBlocks = cleaned.replace(/```[a-z]*\n|```/g, "")
-
-		// Remove any quotes or backticks that might wrap the message
 		const withoutQuotes = withoutCodeBlocks.replace(/^["'`]|["'`]$/g, "")
-
 		return withoutQuotes.trim()
 	}
 }

@@ -1,9 +1,8 @@
+// kilocode_change - new file
 import { CommitMessageRequest, CommitMessageResult } from "../types/core"
 
 /**
  * Simplified interface for IDE-specific commit message adapters.
- * Each adapter handles everything internally: file discovery/validation,
- * progress reporting, AI generation, and message setting.
  */
 export interface ICommitMessageAdapter {
 	/**

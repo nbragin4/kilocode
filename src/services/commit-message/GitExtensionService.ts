@@ -109,9 +109,6 @@ export class GitExtensionService {
 		return result.stdout
 	}
 
-	/**
-	 * Gets diffs for specific file paths or discovers all changed files if none specified
-	 */
 	private async getDiffForChanges(changes: GitChange[], options: GitProgressOptions): Promise<string> {
 		const { onProgress } = options || {}
 		if (changes.length === 0) {
@@ -123,19 +120,9 @@ export class GitExtensionService {
 			let processedFiles = 0
 
 			for (const change of changes) {
-				const absolutePath = change.filePath
-				const relativePath = path.relative(this.workspaceRoot, absolutePath)
+				const relativePath = path.relative(this.workspaceRoot, change.filePath)
 
-				let isValidFile = true
-				if (this.ignoreController) {
-					try {
-						isValidFile = this.ignoreController.validateAccess(relativePath)
-					} catch (error) {
-						isValidFile = true
-					}
-				}
-
-				if (isValidFile && !shouldExcludeLockFile(relativePath)) {
+				if (this.shouldIncludeFile(relativePath)) {
 					const stagedFlag = change.staged ?? options.staged ?? true
 					const diff = this.getGitDiff(change.filePath, { staged: stagedFlag })
 
@@ -145,16 +132,7 @@ export class GitExtensionService {
 				}
 
 				processedFiles++
-
-				// Report progress if callback provided
-				if (onProgress && changes.length > 0) {
-					const percentage = (processedFiles / changes.length) * 100
-					onProgress(percentage)
-				}
-				if (onProgress) {
-					const percentage = (processedFiles / changes.length) * 100
-					onProgress(percentage)
-				}
+				this.reportProgress(onProgress, processedFiles, changes.length)
 			}
 
 			return diffs.join("\n")
@@ -178,29 +156,15 @@ export class GitExtensionService {
 		const { staged } = options
 
 		try {
-			// First check if file is binary to avoid hanging on large binary diffs
-			const checkArgs = staged
-				? ["diff", "--cached", "--numstat", "--", filePath]
-				: ["diff", "--numstat", "--", filePath]
-
-			const numstatOutput = this.spawnGitWithArgs(checkArgs)
-
-			// If numstat shows "-	-" it's a binary file
-			if (numstatOutput.includes("-\t-\t")) {
+			if (this.isBinaryFile(filePath, staged)) {
 				return `Binary file ${filePath} has been ${staged ? "staged" : "modified"}`
 			}
 
-			// For untracked files, we can't get a diff
-			if (!staged) {
-				const statusArgs = ["status", "--porcelain", "--", filePath]
-				const statusOutput = this.spawnGitWithArgs(statusArgs)
-				if (statusOutput.startsWith("??")) {
-					return `New untracked file: ${filePath}`
-				}
+			if (!staged && this.isUntrackedFile(filePath)) {
+				return `New untracked file: ${filePath}`
 			}
 
-			// Get actual diff for text files
-			const diffArgs = staged ? ["diff", "--cached", "--", filePath] : ["diff", "--", filePath]
+			const diffArgs = this.buildDiffArgs(staged, filePath)
 			return this.spawnGitWithArgs(diffArgs)
 		} catch (error) {
 			return `File ${filePath} - diff unavailable`
@@ -225,12 +189,6 @@ export class GitExtensionService {
 		specificFiles?: string[],
 	): Promise<string> {
 		const { staged, includeRepoContext = true } = options
-		console.log(
-			"🔧 GitExtensionService getCommitContext called with changes:",
-			changes.length,
-			"specificFiles:",
-			specificFiles?.length || 0,
-		)
 
 		try {
 			// Start building the context with the required sections
@@ -351,6 +309,57 @@ export class GitExtensionService {
 			default:
 				return "Unknown"
 		}
+	}
+
+	private shouldIncludeFile(relativePath: string): boolean {
+		let isValidFile = true
+		if (this.ignoreController) {
+			try {
+				isValidFile = this.ignoreController.validateAccess(relativePath)
+			} catch (error) {
+				isValidFile = true
+			}
+		}
+		return isValidFile && !shouldExcludeLockFile(relativePath)
+	}
+
+	private reportProgress(
+		onProgress: ((percentage: number) => void) | undefined,
+		processed: number,
+		total: number,
+	): void {
+		if (onProgress && total > 0) {
+			const percentage = (processed / total) * 100
+			onProgress(percentage)
+		}
+	}
+
+	private isBinaryFile(filePath: string, staged: boolean): boolean {
+		try {
+			const checkArgs = this.buildNumstatArgs(staged, filePath)
+			const numstatOutput = this.spawnGitWithArgs(checkArgs)
+			return numstatOutput.includes("-\t-\t")
+		} catch (error) {
+			return false
+		}
+	}
+
+	private isUntrackedFile(filePath: string): boolean {
+		try {
+			const statusArgs = ["status", "--porcelain", "--", filePath]
+			const statusOutput = this.spawnGitWithArgs(statusArgs)
+			return statusOutput.startsWith("??")
+		} catch (error) {
+			return false
+		}
+	}
+
+	private buildNumstatArgs(staged: boolean, filePath: string): string[] {
+		return staged ? ["diff", "--cached", "--numstat", "--", filePath] : ["diff", "--numstat", "--", filePath]
+	}
+
+	private buildDiffArgs(staged: boolean, filePath: string): string[] {
+		return staged ? ["diff", "--cached", "--", filePath] : ["diff", "--", filePath]
 	}
 
 	public dispose() {

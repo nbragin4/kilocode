@@ -1,8 +1,8 @@
+// kilocode_change - new file
 import * as vscode from "vscode"
 
 /**
  * Core request type for commit message generation.
- * Different IDEs provide different information in the request.
  */
 export interface CommitMessageRequest {
 	/** Always required - the workspace path where git operations occur */

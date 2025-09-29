@@ -134,18 +134,13 @@ index 0000000..123
 
 	describe("clean architecture", () => {
 		it("should separate concerns properly", () => {
-			// The generator should only handle message generation logic
-			// It should not have methods for UI, file system, or IDE integration
-
 			const publicMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(generator)).filter(
 				(name) => name !== "constructor" && !name.startsWith("_"),
 			)
 
-			// Should only have the interface-defined methods
 			expect(publicMethods).toContain("generateMessage")
 			expect(publicMethods).toContain("buildPrompt")
 
-			// Should not have UI-specific or IDE-specific methods
 			expect(publicMethods).not.toContain("showProgress")
 			expect(publicMethods).not.toContain("showMessage")
 			expect(publicMethods).not.toContain("openFile")
@@ -155,14 +150,12 @@ index 0000000..123
 
 	describe("error handling", () => {
 		it("should handle errors in generateMessage gracefully", async () => {
-			// Mock a scenario that would cause an error
 			const invalidParams: GenerateMessageParams = {
 				workspacePath: "",
 				selectedFiles: [],
 				gitContext: "",
 			}
 
-			// The method should either complete successfully or throw a descriptive error
 			await expect(async () => {
 				await generator.generateMessage(invalidParams)
 			}).rejects.toThrow()
