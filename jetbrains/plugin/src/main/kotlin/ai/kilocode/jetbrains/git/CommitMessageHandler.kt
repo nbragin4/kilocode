@@ -64,16 +64,12 @@ class CommitMessageHandler(
         private val configPanel: JPanel
 
         init {
-            println("🔧 CommitMessageHandler.CommitMessageConfigPanel.init() - creating button!")
-            // Create UI components with i18n strings
             generateButton = JButton(I18n.t("kilocode:commitMessage.ui.generateButton")).apply {
                 addActionListener {
-                    println("🔧 CommitMessageHandler button clicked - calling generateCommitMessage()")
                     generateCommitMessage()
                 }
                 toolTipText = I18n.t("kilocode:commitMessage.ui.generateButtonTooltip")
             }
-            println("🔧 CommitMessageHandler button created successfully")
 
             // Create the panel layout
             configPanel = JPanel(BorderLayout()).apply {
@@ -116,16 +112,13 @@ class CommitMessageHandler(
      * Updates the commit message field directly in the commit dialog.
      */
     private fun generateCommitMessage() {
-        println("🔧 CommitMessageHandler.generateCommitMessage() called - CORRECT HANDLER!")
         val project = panel.project
 
         if (isGenerating) {
-            println("🔧 CommitMessageHandler - already generating, skipping")
             logger.info("Commit message generation already in progress")
             return
         }
 
-        println("🔧 CommitMessageHandler - starting generation from commit dialog")
         logger.info("Generating commit message from commit dialog")
 
         // Get workspace path
@@ -203,7 +196,6 @@ class CommitMessageHandler(
             // Generate message on background thread
             val result = try {
                 runBlocking {
-                    println("🔧 JetBrains Handler calling service with ${files.size} selected files")
                     commitMessageService.generateCommitMessage(project, workspacePath, files)
                 }
             } catch (e: Exception) {
@@ -287,7 +279,6 @@ class CommitMessageHandler(
                     ?: change.afterRevision?.file?.path
             }
             if (files.isNotEmpty()) {
-                println("🔧 JetBrains Handler extracted ${files.size} file paths from ${changes.size} changes")
                 return files
             }
         } catch (e: Exception) {

@@ -18,6 +18,7 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version "1.8.10"
     id("org.jetbrains.intellij") version "1.17.4"
     id("org.jlleitschuh.gradle.ktlint") version "11.6.1"
+    id("io.gitlab.arturbosch.detekt") version "1.23.4"
 }
 
 apply("genPlatform.gradle")
@@ -143,6 +144,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.10.0")
     implementation("com.google.code.gson:gson:2.10.1")
     testImplementation("junit:junit:4.13.2")
+    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.4")
 }
 
 // Configure Java toolchain to force Java 17
@@ -372,3 +374,18 @@ ktlint {
     }
 }
 
+// Configure detekt
+detekt {
+    toolVersion = "1.23.4"
+    config.setFrom(file("detekt.yml"))
+    buildUponDefaultConfig = true
+    allRules = false
+    
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+        txt.required.set(true)
+        sarif.required.set(true)
+        md.required.set(true)
+    }
+}

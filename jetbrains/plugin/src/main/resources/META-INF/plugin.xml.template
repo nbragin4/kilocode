@@ -117,10 +117,6 @@ SPDX-License-Identifier: Apache-2.0
                 icon="/icons/kilo-dark-small.svg">
             <!-- Primary placement in commit message toolbar (works for all modes) -->
             <add-to-group group-id="Vcs.MessageActionGroup" anchor="first"/>
-            
-            <!-- Keyboard shortcut -->
-            <keyboard-shortcut keymap="$default" first-keystroke="meta shift G"/>
-            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift G"/>
         </action>
 
         <group id="WecoderToolbarGroup">

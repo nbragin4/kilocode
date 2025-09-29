@@ -25,9 +25,7 @@ class CommitMessageHandlerFactory : CheckinHandlerFactory() {
      * @return A new CommitMessageHandler instance
      */
     override fun createHandler(panel: CheckinProjectPanel, commitContext: CommitContext): CheckinHandler {
-        println("🔧 CommitMessageHandlerFactory.createHandler() called - creating handler for commit dialog!")
         val handler = CommitMessageHandler(panel, commitContext)
-        println("🔧 CommitMessageHandlerFactory created handler successfully")
         return handler
     }
 }

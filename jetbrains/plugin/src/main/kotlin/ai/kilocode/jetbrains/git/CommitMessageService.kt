@@ -81,7 +81,6 @@ class CommitMessageService {
     ): Any? {
         // Always pass both parameters: workspacePath and selectedFiles (empty if none)
         val fileList = selectedFiles ?: emptyList()
-        println("🔧 JetBrains RPC calling with workspace: $workspacePath and ${fileList.size} files: $fileList")
         val args = listOf(workspacePath, fileList)
 
         val promise: LazyPromise = proxy.executeContributedCommand(
@@ -92,7 +91,6 @@ class CommitMessageService {
         // Wait for the result with timeout
         return withTimeout(CommitMessageConstants.RPC_TIMEOUT_MS) {
             val result = promise.await()
-            println("🔧 JetBrains RPC received result: $result")
             result
         }
     }

@@ -89,8 +89,6 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
             logger.warn("No project available for commit message generation")
             return
         }
-
-        println("🔧 GitCommitMessageAction.actionPerformed() - KILO LOGO/TOOLBAR BUTTON CLICKED")
         logger.info("Generate Commit Message action triggered")
 
         val workspacePath = WorkspaceResolver.getWorkspacePathOrShowError(
@@ -109,8 +107,6 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                 val checkedFiles = ApplicationManager.getApplication().runReadAction<List<String>> {
                     getCheckedFilesComprehensive(project, dataContext)
                 }
-                
-                println("🔧 GitCommitMessageAction extracted ${checkedFiles.size} CHECKED files")
 
                 // Check if we're in commit dialog context - must be done on EDT
                 ApplicationManager.getApplication().invokeLater {
@@ -133,7 +129,6 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                             checkedFiles
                         }
                         
-                        println("🔧 Using ${finalFiles.size} files for generation: ${finalFiles.take(5).joinToString(", ")}${if (finalFiles.size > 5) "..." else ""}")
                         processWithFiles(project, workspacePath, finalFiles)
                     }
                 }
@@ -159,8 +154,6 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
         checkedFiles: List<String>,
         workspacePath: String
     ) {
-        println("🔧 GitCommitMessageAction.generateAndSetCommitMessage() - COMMIT DIALOG CONTEXT (via VcsDataKeys)")
-        
         // Execute commit message generation with progress indication
         ProgressManager.getInstance().run(object : Task.Backgroundable(
             project,
@@ -174,7 +167,6 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                 try {
                     val result = runBlocking {
                         indicator.text = I18n.t("kilocode:commitMessage.progress.generating")
-                        println("🔧 JetBrains Action (COMMIT DIALOG context) using ${checkedFiles.size} checked files: $checkedFiles")
                         
                         // Use the detected files or empty list for all changes
                         commitMessageService.generateCommitMessage(project, workspacePath, checkedFiles)
@@ -215,8 +207,6 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
      * This handles both toolbar clicks and cases where files are already detected.
      */
     private fun processWithFiles(project: Project, workspacePath: String, files: List<String>) {
-        println("🔧 JetBrains RPC calling with workspace: $workspacePath and ${files.size} files: $files")
-        
         ProgressManager.getInstance().run(object : Task.Backgroundable(
             project,
             I18n.t("kilocode:commitMessage.progress.title"),
@@ -324,11 +314,10 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                 val changes = workflowHandler.ui.getIncludedChanges()
                 val paths = changes.mapNotNull { it.virtualFile?.path }
                 if (paths.isNotEmpty()) {
-                    println("🔧 Got ${paths.size} files via CommitWorkflowHandler")
                     return paths
                 }
             } catch (e: Exception) {
-                println("🔧 CommitWorkflowHandler failed: ${e.message}")
+                logger.debug("CommitWorkflowHandler failed: ${e.message}")
             }
         }
         
@@ -349,11 +338,10 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                 }
                 val paths = futureResult.get(5, TimeUnit.SECONDS) // Wait for EDT operation
                 if (paths.isNotEmpty()) {
-                    println("🔧 Got ${paths.size} files via CheckinProjectPanel")
                     return paths
                 }
             } catch (e: Exception) {
-                println("🔧 CheckinProjectPanel failed: ${e.message}")
+                logger.debug("CheckinProjectPanel failed: ${e.message}")
             }
         }
         
@@ -374,11 +362,10 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                 }
                 val paths = futureResult.get(5, TimeUnit.SECONDS)
                 if (paths.isNotEmpty()) {
-                    println("🔧 Got ${paths.size} files via ChangesListView")
                     return paths
                 }
             } catch (e: Exception) {
-                println("🔧 ChangesListView failed: ${e.message}")
+                logger.debug("ChangesListView failed: ${e.message}")
             }
         }
         
@@ -392,11 +379,10 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                     val changes = workflowHandlerFromControl.ui.getIncludedChanges()
                     val paths = changes.mapNotNull { it.virtualFile?.path }
                     if (paths.isNotEmpty()) {
-                        println("🔧 Got ${paths.size} files via CommitMessage control context")
                         return paths
                     }
                 } catch (e: Exception) {
-                    println("🔧 CommitMessage control context failed: ${e.message}")
+                    logger.debug("CommitMessage control context failed: ${e.message}")
                 }
             }
         }
@@ -425,7 +411,7 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                         val paths = changes.mapNotNull { it.virtualFile?.path }
                         futureResult.complete(paths)
                     } catch (e: Exception) {
-                        println("🔧 Error accessing ChangesViewCommitPanel: ${e.message}")
+                        logger.debug("Error accessing ChangesViewCommitPanel: ${e.message}")
                         futureResult.complete(emptyList())
                     }
                 }
@@ -448,8 +434,6 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
      * relying on TypeScript-side git discovery.
      */
     private fun getAllAvailableChanges(project: Project): List<String> {
-        println("🔧 Getting ALL available changes from JetBrains ChangeListManager")
-        
         val changeListManager = ChangeListManager.getInstance(project)
         val allChanges = mutableListOf<String>()
         
@@ -480,11 +464,10 @@ class GitCommitMessageAction : AnAction(I18n.t("kilocode:commitMessage.ui.genera
                 }
             }
             
-            println("🔧 Found ${allChanges.size} total changes: ${allChanges.take(3).joinToString(", ")}${if (allChanges.size > 3) "..." else ""}")
             return allChanges.distinct()
             
         } catch (e: Exception) {
-            println("🔧 Error getting all changes: ${e.message}")
+            logger.debug("Error getting all changes: ${e.message}")
             // If all else fails, fall back to empty list - the TypeScript side can handle discovery
             return emptyList()
         }
