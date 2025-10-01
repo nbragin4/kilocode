@@ -4,7 +4,7 @@ exports[`EditableRegionCalculator > calculateEditableRegion > should expand arou
 {
   "editableEnd": 4,
   "editableStart": 0,
-  "tokensUsed": 13,
+  "tokensUsed": 18,
   "totalLines": 5,
 }
 `;
@@ -13,16 +13,16 @@ exports[`EditableRegionCalculator > calculateEditableRegion > should handle sing
 {
   "editableEnd": 0,
   "editableStart": 0,
-  "tokensUsed": 3,
+  "tokensUsed": 2,
   "totalLines": 1,
 }
 `;
 
 exports[`EditableRegionCalculator > calculateEditableRegion > should respect low token limits 1`] = `
 {
-  "editableEnd": 3,
-  "editableStart": 0,
-  "tokensUsed": 11,
+  "editableEnd": 2,
+  "editableStart": 1,
+  "tokensUsed": 9,
   "totalLines": 5,
 }
 `;

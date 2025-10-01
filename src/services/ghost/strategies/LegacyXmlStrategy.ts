@@ -2,20 +2,19 @@ import { GhostSuggestionContext } from "../types"
 import { StreamingParseResult, GhostStreamingParser } from "../GhostStreamingParser"
 import { PromptStrategy, UseCaseType } from "../types/PromptStrategy"
 import { GhostContextError, GhostStrategyError } from "../utils/result"
-import { GhostSuggestionsState } from "../GhostSuggestions"
 
 /**
- * Legacy XML Prompt Strategy with integrated streaming parser.
- * Uses the existing XML format with streaming support, wrapped in the new strategy interface.
- * This provides backward compatibility while fitting into the new architecture.
+ * Legacy XML Prompt Strategy using GhostStreamingParser.
+ * Uses XML format with <change><search><replace> blocks and the original
+ * GhostStreamingParser for proper XML handling and suggestion generation.
  */
 export class LegacyXmlStrategy implements PromptStrategy {
 	public readonly name: string = "Legacy XML"
 	public readonly type: UseCaseType = UseCaseType.AUTO_TRIGGER
 
 	private streamingParser: GhostStreamingParser
+	private context?: GhostSuggestionContext
 	private accumulatedResponse: string = ""
-	private context: GhostSuggestionContext | null = null
 
 	constructor() {
 		this.streamingParser = new GhostStreamingParser()
@@ -127,53 +126,22 @@ Provide the completion using the XML format specified in the system instructions
 		this.reset()
 		this.context = context
 		this.validateContext(context)
+		// Initialize the streaming parser with context
+		this.streamingParser.initialize(context)
 	}
 
 	/**
-	 * Process response chunk - accumulate until we find complete <change> blocks
+	 * Process response chunk using the GhostStreamingParser
 	 */
 	processResponseChunk(chunk: string): StreamingParseResult {
-		this.accumulatedResponse += chunk
-
-		// Check if we have a complete <change> block
-		const changeMatch = this.accumulatedResponse.match(
-			/<change>\s*<search><!\[CDATA\[([\s\S]*?)\]\]><\/search>\s*<replace><!\[CDATA\[([\s\S]*?)\]\]><\/replace>\s*<\/change>/i,
-		)
-
-		if (changeMatch) {
-			const searchContent = changeMatch[1]
-			const replaceContent = changeMatch[2]
-
-			if (searchContent && replaceContent) {
-				const suggestions = this.createSuggestionsFromXmlChange(searchContent, replaceContent)
-				return this.createCompleteResult(suggestions)
-			}
-		}
-
-		// Continue streaming - not complete yet
-		return this.createEmptyResult()
+		return this.streamingParser.processChunk(chunk)
 	}
 
 	/**
-	 * Finish processing - extract any remaining XML changes
+	 * Finish processing using the GhostStreamingParser
 	 */
 	finishProcessing(): StreamingParseResult {
-		// Try to extract change from accumulated response
-		const changeMatch = this.accumulatedResponse.match(
-			/<change>\s*<search><!\[CDATA\[([\s\S]*?)\]\]><\/search>\s*<replace><!\[CDATA\[([\s\S]*?)\]\]><\/replace>\s*<\/change>/i,
-		)
-
-		if (changeMatch) {
-			const searchContent = changeMatch[1]
-			const replaceContent = changeMatch[2]
-
-			if (searchContent && replaceContent) {
-				const suggestions = this.createSuggestionsFromXmlChange(searchContent, replaceContent)
-				return this.createCompleteResult(suggestions)
-			}
-		}
-
-		return this.createEmptyResult()
+		return this.streamingParser.finishStream()
 	}
 
 	/**
@@ -181,76 +149,7 @@ Provide the completion using the XML format specified in the system instructions
 	 */
 	reset(): void {
 		this.accumulatedResponse = ""
-	}
-
-	/**
-	 * Create suggestions from XML change block
-	 */
-	private createSuggestionsFromXmlChange(searchContent: string, replaceContent: string): GhostSuggestionsState {
-		const suggestions = new GhostSuggestionsState()
-
-		if (!this.context?.document || !this.context?.range) {
-			return suggestions
-		}
-
-		try {
-			const document = this.context.document
-			const position = this.context.range.start
-			const line = position.line
-
-			// Extract the function body content from the replacement
-			let meaningfulContent = ""
-
-			// Look for function body content in the replace section
-			const functionMatch = replaceContent.match(/function\s+\w+\([^)]*\)\s*\{\s*([\s\S]*?)\s*\}$/s)
-
-			if (functionMatch) {
-				// Extract the function body content
-				meaningfulContent = functionMatch[1].trim()
-			} else {
-				// If no function wrapper, use the replace content as-is
-				meaningfulContent = replaceContent.trim()
-			}
-
-			// Get the current line to preserve indentation
-			const currentLine = document.lineAt(line)
-			const leadingWhitespace = currentLine.text.match(/^(\s*)/)?.[1] || ""
-
-			// Apply the leading whitespace to the first line of completion, keep others as-is
-			const completionLines = meaningfulContent.split("\n")
-			const indentedCompletion = completionLines
-				.map((line, index) => {
-					// First line gets the cursor position's indentation, others keep their relative indentation
-					return index === 0 ? leadingWhitespace + line : line
-				})
-				.join("\n")
-
-			// Create a replacement operation at the cursor position
-			const suggestionFile = suggestions.addFile(document.uri)
-
-			// First delete the empty line at cursor position
-			suggestionFile.addOperation({
-				type: "-",
-				line: line,
-				oldLine: line,
-				newLine: line,
-				content: "",
-			})
-
-			// Then add the meaningful content with proper indentation
-			suggestionFile.addOperation({
-				type: "+",
-				line: line,
-				oldLine: line,
-				newLine: line,
-				content: indentedCompletion,
-			})
-
-			return suggestions
-		} catch (error) {
-			console.error("Error creating suggestions from XML change:", error)
-			return suggestions
-		}
+		this.streamingParser.reset()
 	}
 
 	/**
@@ -262,28 +161,6 @@ Provide the completion using the XML format specified in the system instructions
 		}
 		if (!context.range) {
 			throw new Error("Range context is required")
-		}
-	}
-
-	/**
-	 * Helper method to create empty result
-	 */
-	private createEmptyResult(): StreamingParseResult {
-		return {
-			suggestions: new GhostSuggestionsState(),
-			isComplete: false,
-			hasNewSuggestions: false,
-		}
-	}
-
-	/**
-	 * Helper method to create complete result
-	 */
-	private createCompleteResult(suggestions: GhostSuggestionsState): StreamingParseResult {
-		return {
-			suggestions,
-			isComplete: true,
-			hasNewSuggestions: suggestions.hasSuggestions(),
 		}
 	}
 }

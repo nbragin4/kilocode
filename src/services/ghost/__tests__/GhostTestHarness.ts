@@ -74,28 +74,28 @@ export class GhostTestHarness {
 				diagnostics: [],
 			}
 
-			// 5. Process using the correct strategy API
+			// 5. Process using the unified streaming API for all strategies
 			let finalContent = cleanContent
 
-			if (testCase.strategy === "mercury-coder") {
-				// Mercury has a simple extractCompletion method
-				const mercuryStrategy = strategy as MercuryStrategy
-				finalContent = mercuryStrategy.extractCompletion(testCase.mockResponse)
-			} else {
-				// Other strategies use the streaming API
-				strategy.initializeProcessing(context)
-				strategy.processResponseChunk(testCase.mockResponse)
-				const result = strategy.finishProcessing()
+			// All strategies now use the streaming API
+			strategy.initializeProcessing(context)
+			strategy.processResponseChunk(testCase.mockResponse)
+			const result = strategy.finishProcessing()
 
-				// Apply suggestions using StringGhostApplicator
-				if (result.hasNewSuggestions && result.suggestions) {
-					const applicator = new StringGhostApplicator()
-					applicator.setOriginalContent(document.uri.toString(), cleanContent)
-					await applicator.applyAll(result.suggestions, document.uri.toString())
-					const appliedContent = applicator.getResult(document.uri.toString())
-					finalContent = appliedContent || cleanContent
-				}
+			// Apply suggestions using StringGhostApplicator
+			if (result.hasNewSuggestions && result.suggestions) {
+				const applicator = new StringGhostApplicator()
+				applicator.setOriginalContent(document.uri.toString(), cleanContent)
+				await applicator.applyAll(result.suggestions, document.uri.toString())
+				const appliedContent = applicator.getResult(document.uri.toString())
+				finalContent = appliedContent || cleanContent
 			}
+
+			console.log("=== GHOST TEST HARNESS DEBUG ===")
+			console.log("Actual final content:", JSON.stringify(finalContent))
+			console.log("Expected output:", JSON.stringify(testCase.expectedOutput))
+			console.log("Content matches:", finalContent === testCase.expectedOutput)
+			console.log("=== END DEBUG ===")
 
 			return {
 				success: finalContent === testCase.expectedOutput,

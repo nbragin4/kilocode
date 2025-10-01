@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { EditableRegion } from "./EditableRegionCalculator"
+import { EditableRegion, EditableRegionResult } from "./EditableRegionCalculator"
 
 /**
  * Builds Mercury prompts with proper code-to-edit markers.

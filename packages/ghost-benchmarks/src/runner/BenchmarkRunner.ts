@@ -12,6 +12,7 @@ import { GhostEngine } from "../../../../src/services/ghost/GhostEngine"
 import { NodeGhostAdapter } from "../adapters/NodeGhostAdapter"
 import { ProviderSettingsManager } from "../../../../src/core/config/ProviderSettingsManager"
 import { GhostProfileManager } from "../../../../src/services/ghost/profiles/GhostProfileManager"
+import { StringGhostApplicator } from "../../../../src/services/ghost/applicators/StringGhostApplicator"
 
 // Simple mock for GhostDocumentStore to avoid import issues in benchmark environment
 class MockGhostDocumentStore {
@@ -42,8 +43,7 @@ export class BenchmarkRunner {
 	private testCaseLoader: TestCaseLoader
 	private scoreCalculator: ScoreCalculator
 	private resultStorage: ResultStorage
-	private ghostEngine: GhostEngine
-	private ghostProfileManager: GhostProfileManager
+	private mockProviderSettingsManager: ProviderSettingsManager
 	private mockWorkspace: ReturnType<typeof NodeGhostAdapter.createMockWorkspace>
 
 	constructor(options?: { testCasesDir?: string; resultsDir?: string }) {
@@ -51,17 +51,9 @@ export class BenchmarkRunner {
 		this.scoreCalculator = new ScoreCalculator()
 		this.resultStorage = new ResultStorage(options?.resultsDir)
 
-		// Initialize real GhostEngine with mock dependencies
-		const mockProviderSettingsManager = this.createMockProviderSettingsManager()
-		const mockDocumentStore = new MockGhostDocumentStore()
-		this.ghostEngine = new GhostEngine(mockProviderSettingsManager, mockDocumentStore as any)
-		this.ghostProfileManager = new GhostProfileManager(mockProviderSettingsManager)
+		// Create mock dependencies once - these can be reused
+		this.mockProviderSettingsManager = this.createMockProviderSettingsManager()
 		this.mockWorkspace = NodeGhostAdapter.createMockWorkspace()
-
-		// Initialize benchmark profiles - this must be done synchronously in constructor
-		this.initializeBenchmarkProfiles().catch((error) => {
-			console.error("Failed to initialize benchmark profiles:", error)
-		})
 	}
 
 	/**
@@ -112,74 +104,77 @@ export class BenchmarkRunner {
 	}
 
 	/**
-	 * Ensure benchmark profiles are loaded into the GhostEngine's profile manager
+	 * Create and configure a fresh GhostEngine instance for a test
 	 */
-	private async ensureBenchmarkProfilesLoaded(): Promise<void> {
-		try {
-			// Get the profile manager from the GhostEngine
-			const engineProfileManager = this.ghostEngine.getProfileManager()
+	private async createFreshGhostEngine(): Promise<GhostEngine> {
+		// Create fresh instances for complete isolation
+		const mockDocumentStore = new MockGhostDocumentStore()
+		const ghostEngine = new GhostEngine(this.mockProviderSettingsManager, mockDocumentStore as any)
 
-			// Create Mercury profile - Mercury Coder model with Mercury strategy
-			await engineProfileManager.createProfile({
-				id: "mercury",
-				name: "Mercury Coder",
-				description: "Mercury Coder model with Mercury strategy",
-				apiProfileId: "mock-openrouter-profile",
-				promptStrategyType: "mercury",
-				isDefault: true,
-				customSettings: {
-					openRouterModelId: "inception/mercury-coder",
-				},
-			})
+		// Load the engine with enableCustomProvider = false to use the new system
+		await ghostEngine.load({ enableCustomProvider: false })
 
-			// Create Hole-Filler profile - GPT-4o mini with hole-filler strategy
-			await engineProfileManager.createProfile({
-				id: "hole-filler",
-				name: "Hole Filler",
-				description: "GPT-4o mini with hole-filler strategy",
-				apiProfileId: "mock-openrouter-profile",
-				promptStrategyType: "hole-filler",
-				isDefault: false,
-				customSettings: {
-					openRouterModelId: "openai/gpt-4o-mini",
-				},
-			})
+		// Get the profile manager from the fresh GhostEngine
+		const engineProfileManager = ghostEngine.getProfileManager()
 
-			// Create FIM profile - Mistral Codestral with FIM strategy
-			await engineProfileManager.createProfile({
-				id: "fim",
-				name: "FIM Coder",
-				description: "Mistral Codestral 2508 - specialized code completion model with native FIM support",
-				apiProfileId: "mock-openrouter-profile",
-				promptStrategyType: "fim",
-				isDefault: false,
-				customSettings: {
-					openRouterModelId: "mistralai/codestral-2508",
-				},
-			})
+		// Create Mercury profile - Mercury Coder model with Mercury strategy
+		await engineProfileManager.createProfile({
+			id: "mercury",
+			name: "Mercury Coder",
+			description: "Mercury Coder model with Mercury strategy",
+			apiProfileId: "mock-openrouter-profile",
+			promptStrategyType: "mercury",
+			isDefault: true,
+			customSettings: {
+				openRouterModelId: "inception/mercury-coder",
+			},
+		})
 
-			// Create Legacy-XML profile - Claude 3.5 Sonnet with legacy XML strategy
-			await engineProfileManager.createProfile({
-				id: "legacy-xml",
-				name: "Legacy XML",
-				description: "Claude 3.5 Sonnet with legacy XML strategy for precise instruction following",
-				apiProfileId: "mock-openrouter-profile",
-				promptStrategyType: "legacy-xml",
-				isDefault: false,
-				customSettings: {
-					openRouterModelId: "anthropic/claude-3.5-sonnet",
-				},
-			})
+		// Create Hole-Filler profile - GPT-4o mini with hole-filler strategy
+		await engineProfileManager.createProfile({
+			id: "hole-filler",
+			name: "Hole Filler",
+			description: "GPT-4o mini with hole-filler strategy",
+			apiProfileId: "mock-openrouter-profile",
+			promptStrategyType: "hole-filler",
+			isDefault: false,
+			customSettings: {
+				openRouterModelId: "openai/gpt-4o-mini",
+			},
+		})
 
-			console.log("✅ Initialized 4 benchmark profiles with different models and strategies")
-		} catch (error) {
-			console.error("❌ Failed to initialize benchmark profiles:", error)
-			throw error
-		}
+		// Create FIM profile - Mistral Codestral with FIM strategy
+		await engineProfileManager.createProfile({
+			id: "fim",
+			name: "FIM Coder",
+			description: "Mistral Codestral 2508 - specialized code completion model with native FIM support",
+			apiProfileId: "mock-openrouter-profile",
+			promptStrategyType: "fim",
+			isDefault: false,
+			customSettings: {
+				openRouterModelId: "mistralai/codestral-2508",
+			},
+		})
+
+		// Create Legacy-XML profile - Claude 3.5 Sonnet with legacy XML strategy
+		await engineProfileManager.createProfile({
+			id: "legacy-xml",
+			name: "Legacy XML",
+			description: "Claude 3.5 Sonnet with legacy XML strategy for precise instruction following",
+			apiProfileId: "mock-openrouter-profile",
+			promptStrategyType: "legacy-xml",
+			isDefault: false,
+			customSettings: {
+				openRouterModelId: "anthropic/claude-3.5-sonnet",
+			},
+		})
+
+		console.log("✅ Initialized 4 benchmark profiles with different models and strategies")
+		return ghostEngine
 	}
 
 	/**
-	 * Run single test case using real Ghost system
+	 * Run single test case using real Ghost system with fresh engine instance
 	 */
 	async runTestCase(testCase: BenchmarkTestCase, options: BenchmarkOptions): Promise<BenchmarkResult> {
 		try {
@@ -189,35 +184,24 @@ export class BenchmarkRunner {
 				throw new Error("Profile name required for test execution")
 			}
 
-			// GhostEngine already initialized in constructor
+			// Create a fresh GhostEngine instance for complete test isolation
+			const ghostEngine = await this.createFreshGhostEngine()
 
 			// Create benchmark context using NodeGhostAdapter
 			const { engineContext, mockDocument } = NodeGhostAdapter.createBenchmarkContext(testCase)
 
-			// Load the engine if needed - keep enableCustomProvider = false but ensure our profiles are loaded
-			if (!this.ghostEngine.loaded) {
-				// Load with enableCustomProvider = false to use the new system
-				await this.ghostEngine.load({ enableCustomProvider: false })
-
-				// After loading, add our benchmark profiles to the engine's profile manager
-				await this.ensureBenchmarkProfilesLoaded()
-			}
-
 			// Get the Ghost profile for this benchmark from the engine's profile manager
-			const engineProfileManager = this.ghostEngine.getProfileManager()
+			const engineProfileManager = ghostEngine.getProfileManager()
 			const ghostProfile = engineProfileManager.getProfile(options.profile)
 			if (!ghostProfile) {
 				// Debug: List all available profiles
-				const availableProfiles = this.ghostProfileManager.getAllProfiles()
-				const profileIds = availableProfiles.map((p) => p.id)
-				console.log(`Available profiles: ${profileIds.join(", ")}`)
-
-				// Also check the engine's profile manager
-				const engineProfiles = this.ghostEngine.getProfileManager().getAllProfiles()
+				const engineProfiles = ghostEngine.getProfileManager().getAllProfiles()
 				const engineProfileIds = engineProfiles.map((p) => p.id)
 				console.log(`Engine profiles: ${engineProfileIds.join(", ")}`)
 
-				throw new Error(`Ghost profile not found: ${options.profile}. Available: ${profileIds.join(", ")}`)
+				throw new Error(
+					`Ghost profile not found: ${options.profile}. Available: ${engineProfileIds.join(", ")}`,
+				)
 			}
 
 			// Get profile summary for logging
@@ -227,7 +211,7 @@ export class BenchmarkRunner {
 			)
 
 			// Switch the GhostEngine to use the correct profile
-			const profileSwitched = await this.ghostEngine.switchProfile(options.profile)
+			const profileSwitched = await ghostEngine.switchProfile(options.profile)
 			if (!profileSwitched) {
 				throw new Error(`Failed to switch to profile: ${options.profile}`)
 			}
@@ -237,7 +221,9 @@ export class BenchmarkRunner {
 
 			// Execute through REAL GhostEngine (now using the correct profile)
 			const startTime = Date.now()
-			const result = await this.ghostEngine.executeCompletion(engineContext)
+			// Use StringGhostApplicator for benchmarks (no actual file modification needed)
+			const applicator = new StringGhostApplicator()
+			const result = await ghostEngine.executeCompletion(engineContext, applicator, "none")
 			const executionTime = Date.now() - startTime
 
 			// Apply all suggestions to get final file content

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import { HoleFillStrategy } from "../HoleFillStrategy"
 import { MockTextDocument } from "../../../mocking/MockTextDocument"
 import * as vscode from "vscode"
+import { GhostSuggestionEditOperation } from "../../types"
 
 describe("HoleFillStrategy Debug", () => {
 	it("should debug HoleFill strategy processing", async () => {
@@ -70,7 +71,7 @@ return emailRegex.test(email);
 			if (files.length > 0) {
 				const operations = files[0].getAllOperations()
 				console.log("Operations:", operations.length)
-				operations.forEach((op: any, i: number) => {
+				operations.forEach((op: GhostSuggestionEditOperation, i: number) => {
 					console.log(`Operation ${i}:`, JSON.stringify(op, null, 2))
 				})
 			}

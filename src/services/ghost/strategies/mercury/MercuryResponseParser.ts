@@ -14,13 +14,7 @@ export class MercuryResponseParser {
 	 * Matches Continue's extractCompletion method.
 	 */
 	public extractCleanCode(response: string): string {
-		// Extract from markdown code blocks (Continue's approach)
-		const extractedCode = this.extractFromCodeBlocks(response)
-
-		// Strip Mercury markers if they leak through (shouldn't happen with good prompting)
-		const cleaned = this.stripMercuryMarkers(extractedCode)
-
-		return cleaned.trim()
+		return this.extractFromCodeBlocks(response).trim()
 	}
 
 	/**
@@ -55,19 +49,6 @@ export class MercuryResponseParser {
 
 		// No code blocks found, return original
 		return message.trim()
-	}
-
-	/**
-	 * Strip Mercury markers from content.
-	 * These shouldn't be in responses with proper prompting, but handle as fallback.
-	 */
-	private stripMercuryMarkers(content: string): string {
-		const { OPEN, CLOSE } = MercuryResponseParser.MERCURY_MARKERS
-
-		let cleaned = content.replace(new RegExp(OPEN, "g"), "")
-		cleaned = cleaned.replace(new RegExp(CLOSE.replace(/[|]/g, "\\|"), "g"), "")
-
-		return cleaned
 	}
 
 	/**

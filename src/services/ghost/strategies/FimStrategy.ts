@@ -6,6 +6,7 @@ import { GhostSuggestionContext } from "../types"
 import { StreamingParseResult } from "../GhostStreamingParser"
 import { GhostSuggestionsState } from "../GhostSuggestions"
 import { PromptStrategy, UseCaseType } from "../types/PromptStrategy"
+import { createSuggestionsFromCompletion } from "../utils/diffToOperations"
 
 /**
  * Fill-in-Middle Strategy for code models with native FIM support (Qwen, StarCoder, CodeLlama).
@@ -122,13 +123,8 @@ Provide only the missing code without any explanations or additional formatting.
 	 * Finish processing - handle any remaining content
 	 */
 	finishProcessing(): StreamingParseResult {
-		// Clean up any stop tokens
-		const stopTokens = ["<|endoftext|>", "<|fim_prefix|>", "<|fim_middle|>", "<|fim_suffix|>"]
-		let cleanResponse = this.accumulatedResponse
-
-		stopTokens.forEach((token) => {
-			cleanResponse = cleanResponse.split(token)[0]
-		})
+		// Clean up any stop tokens and reasoning blocks
+		let cleanResponse = this.cleanResponse(this.accumulatedResponse)
 
 		const trimmedResponse = cleanResponse.trim()
 		if (trimmedResponse) {
@@ -137,6 +133,32 @@ Provide only the missing code without any explanations or additional formatting.
 		}
 
 		return this.createEmptyResult()
+	}
+
+	/**
+	 * Clean response by removing stop tokens and reasoning blocks
+	 */
+	private cleanResponse(response: string): string {
+		let cleaned = response
+
+		// Remove stop tokens
+		const stopTokens = ["<|endoftext|>", "<|fim_prefix|>", "<|fim_middle|>", "<|fim_suffix|>"]
+		stopTokens.forEach((token) => {
+			cleaned = cleaned.split(token)[0]
+		})
+
+		// Remove <think> reasoning blocks
+		cleaned = this.removeThinkBlocks(cleaned)
+
+		return cleaned
+	}
+
+	/**
+	 * Remove <think>...</think> reasoning blocks from response
+	 */
+	private removeThinkBlocks(response: string): string {
+		// Remove all <think>...</think> blocks (case insensitive, multiline)
+		return response.replace(/<think>[\s\S]*?<\/think>/gi, "").trim()
 	}
 
 	/**
@@ -187,92 +209,15 @@ Provide only the missing code without any explanations or additional formatting.
 	}
 
 	/**
-	 * Create suggestions from completion text
+	 * Create suggestions from completion text using consolidated utility
 	 */
 	private createSuggestionsFromCompletion(completionText: string): GhostSuggestionsState {
-		const suggestions = new GhostSuggestionsState()
-
-		if (!this.context?.document || !this.context?.range || !completionText) {
-			return suggestions
+		if (!this.context) {
+			return new GhostSuggestionsState()
 		}
 
-		try {
-			const document = this.context.document
-			const position = this.context.range.start
-			const line = position.line
-			const character = position.character
-
-			// Get the current line
-			const currentLine = document.lineAt(line)
-			const lineText = currentLine.text
-
-			// Check if this is an inline completion (cursor in middle of line) or line completion (empty line)
-			const isInlineCompletion = lineText.trim().length > 0 && character < lineText.length
-
-			const suggestionFile = suggestions.addFile(document.uri)
-
-			if (isInlineCompletion) {
-				// Inline completion: replace just the cursor position with completion text
-				// Get text before and after cursor
-				const beforeCursor = lineText.substring(0, character)
-				const afterCursor = lineText.substring(character)
-
-				// Create new line content by inserting completion at cursor position
-				const newLineContent = beforeCursor + completionText + afterCursor
-
-				// Replace the entire line
-				suggestionFile.addOperation({
-					type: "-",
-					line: line,
-					oldLine: line,
-					newLine: line,
-					content: lineText,
-				})
-
-				suggestionFile.addOperation({
-					type: "+",
-					line: line,
-					oldLine: line,
-					newLine: line,
-					content: newLineContent,
-				})
-			} else {
-				// Line completion: replace empty line with completion (preserve indentation)
-				const leadingWhitespace = lineText.match(/^(\s*)/)?.[1] || ""
-
-				// Apply the leading whitespace to the first line of completion, keep others as-is
-				const completionLines = completionText.split("\n")
-				const indentedCompletion = completionLines
-					.map((line, index) => {
-						// First line gets the cursor position's indentation, others keep their relative indentation
-						return index === 0 ? leadingWhitespace + line : line
-					})
-					.join("\n")
-
-				// Delete the empty line at cursor position
-				suggestionFile.addOperation({
-					type: "-",
-					line: line,
-					oldLine: line,
-					newLine: line,
-					content: "",
-				})
-
-				// Add the completion content with proper indentation
-				suggestionFile.addOperation({
-					type: "+",
-					line: line,
-					oldLine: line,
-					newLine: line,
-					content: indentedCompletion,
-				})
-			}
-
-			return suggestions
-		} catch (error) {
-			console.error("Error creating suggestions from FIM completion:", error)
-			return suggestions
-		}
+		// Use the consolidated utility (no targetLines for FIM - uses cursor position)
+		return createSuggestionsFromCompletion(completionText, this.context)
 	}
 
 	/**
