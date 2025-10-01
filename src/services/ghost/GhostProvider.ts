@@ -12,7 +12,7 @@ import { getWorkspacePath } from "../../utils/path"
 import { GhostSuggestionsState } from "./GhostSuggestions"
 import { GhostCodeActionProvider } from "./GhostCodeActionProvider"
 import { GhostCodeLensProvider } from "./GhostCodeLensProvider"
-import { GhostServiceSettings, TelemetryEventName } from "@roo-code/types"
+import { GhostServiceSettings, TelemetryEventName, GhostProfile } from "@roo-code/types"
 import { ContextProxy } from "../../core/config/ContextProxy"
 import { ProviderSettingsManager } from "../../core/config/ProviderSettingsManager"
 import { GhostContext } from "./GhostContext"
@@ -20,12 +20,13 @@ import { TelemetryService } from "@roo-code/telemetry"
 import { ClineProvider } from "../../core/webview/ClineProvider"
 import { GhostGutterAnimation } from "./GhostGutterAnimation"
 import { GhostCursor } from "./GhostCursor"
+import { GhostProfileManager } from "./GhostProfileManager"
 
 export class GhostProvider {
 	private static instance: GhostProvider | null = null
 	private decorations: GhostDecorations
 	private documentStore: GhostDocumentStore
-	private model: GhostModel
+	private model: GhostModel | null = null
 	private strategy: GhostXmlStrategy
 	private workspaceEdit: GhostWorkspaceEdit
 	private suggestions: GhostSuggestionsState = new GhostSuggestionsState()
@@ -33,6 +34,7 @@ export class GhostProvider {
 	private cline: ClineProvider
 	private providerSettingsManager: ProviderSettingsManager
 	private settings: GhostServiceSettings | null = null
+	private ghostProfile: GhostProfile | null = null
 	private ghostContext: GhostContext
 	private cursor: GhostCursor
 	private cursorAnimation: GhostGutterAnimation
@@ -65,7 +67,6 @@ export class GhostProvider {
 		this.strategy = new GhostXmlStrategy({ debug: true })
 		this.workspaceEdit = new GhostWorkspaceEdit()
 		this.providerSettingsManager = new ProviderSettingsManager(context)
-		this.model = new GhostModel()
 		this.ghostContext = new GhostContext(this.documentStore)
 		this.cursor = new GhostCursor()
 		this.cursorAnimation = new GhostGutterAnimation(context)
@@ -119,7 +120,14 @@ export class GhostProvider {
 
 	public async load() {
 		this.settings = this.loadSettings()
-		await this.model.reload(this.settings, this.providerSettingsManager)
+
+		// Create ghost profile from settings
+		this.ghostProfile = await GhostProfileManager.createGhostProfileFromSettings(
+			this.settings || {},
+			this.providerSettingsManager,
+		)
+		this.model = await GhostModel.createFromApiConfig(this.ghostProfile.apiConfigId, this.providerSettingsManager)
+
 		this.cursorAnimation.updateSettings(this.settings || undefined)
 		await this.updateGlobalContext()
 		this.updateStatusBar()
@@ -259,7 +267,7 @@ export class GhostProvider {
 			return
 		}
 
-		if (!this.model.loaded) {
+		if (!this.model) {
 			this.stopProcessing()
 			await this.load()
 		}
@@ -317,7 +325,7 @@ export class GhostProvider {
 
 		try {
 			// Start streaming generation
-			const usageInfo = await this.model.generateResponse(systemPrompt, userPrompt, onChunk)
+			const usageInfo = await this.model!.generateResponse(systemPrompt, userPrompt, onChunk)
 
 			console.log("response", response)
 
@@ -583,14 +591,14 @@ export class GhostProvider {
 	}
 
 	private getCurrentModelName(): string {
-		if (!this.model.loaded) {
+		if (!this.model) {
 			return "loading..."
 		}
 		return this.model.getModelName() ?? "unknown"
 	}
 
 	private hasValidApiToken(): boolean {
-		return this.model.loaded && this.model.hasValidCredentials()
+		return this.model !== null
 	}
 
 	private updateCostTracking(cost: number) {

@@ -1,5 +1,14 @@
 import { z } from "zod"
 
+export const ghostProfileSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	apiConfigId: z.string(),
+	strategyId: z.string(),
+})
+
+export type GhostProfile = z.infer<typeof ghostProfileSchema>
+
 export const ghostServiceSettingsSchema = z
 	.object({
 		enableAutoTrigger: z.boolean().optional(),
