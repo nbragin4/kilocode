@@ -1,0 +1,17 @@
+{
+  "name": "function-call-args",
+  "category": "Function Call",
+  "description": "Should suggest function call argument completion",
+  "cursorPosition": {
+    "line": 1,
+    "character": 6
+  },
+  "expectedPatterns": [
+    "\\)",
+    "'",
+    "\""
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

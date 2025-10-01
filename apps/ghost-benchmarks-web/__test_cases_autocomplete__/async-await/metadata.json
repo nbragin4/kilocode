@@ -1,0 +1,17 @@
+{
+  "name": "async-await",
+  "category": "Complex",
+  "description": "Should suggest async operations",
+  "cursorPosition": {
+    "line": 1,
+    "character": 25
+  },
+  "expectedPatterns": [
+    "fetch",
+    "axios",
+    "Promise"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

@@ -1,0 +1,37 @@
+{
+	"name": "ghost-benchmarks-web",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"kill": "lsof -ti:3004 | xargs kill -9 2>/dev/null || true",
+		"dev": "npm run kill && node server.js",
+		"build": "next build",
+		"start": "NODE_ENV=production node server.js",
+		"lint": "eslint"
+	},
+	"dependencies": {
+		"@types/socket.io": "^3.0.2",
+		"chokidar": "^3.6.0",
+		"dotenv": "^16.4.5",
+		"next": "15.5.4",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"shiki": "^3.13.0",
+		"socket.io": "^4.8.1",
+		"socket.io-client": "^4.8.1",
+		"tsx": "^4.19.3"
+	},
+	"devDependencies": {
+		"@eslint/eslintrc": "^3",
+		"@roo-code/config-eslint": "workspace:^",
+		"@tailwindcss/postcss": "^4",
+		"@types/node": "^20",
+		"@types/react": "^18",
+		"@types/react-dom": "^18",
+		"eslint": "^9",
+		"eslint-config-next": "15.5.4",
+		"tailwindcss": "^4",
+		"typescript": "^5"
+	}
+}

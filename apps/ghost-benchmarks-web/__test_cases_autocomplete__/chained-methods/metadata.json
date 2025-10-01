@@ -1,0 +1,18 @@
+{
+  "name": "chained-methods",
+  "category": "Complex",
+  "description": "Should suggest chained array methods",
+  "cursorPosition": {
+    "line": 2,
+    "character": 3
+  },
+  "expectedPatterns": [
+    "filter",
+    "reduce",
+    "forEach",
+    "map"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

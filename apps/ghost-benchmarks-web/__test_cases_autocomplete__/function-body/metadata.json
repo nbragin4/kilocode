@@ -1,0 +1,17 @@
+{
+  "name": "function-body",
+  "category": "Function Declaration",
+  "description": "Should complete function body opening",
+  "cursorPosition": {
+    "line": 0,
+    "character": 29
+  },
+  "expectedPatterns": [
+    "{",
+    "{\\n",
+    "{\\s*\\n\\s*return a \\+ b"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

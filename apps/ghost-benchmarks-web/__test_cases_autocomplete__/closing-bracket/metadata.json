@@ -1,0 +1,15 @@
+{
+  "name": "closing-bracket",
+  "category": "Basic Syntax",
+  "description": "Should complete closing bracket for array",
+  "cursorPosition": {
+    "line": 0,
+    "character": 20
+  },
+  "expectedPatterns": [
+    "]"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

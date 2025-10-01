@@ -1,0 +1,16 @@
+{
+  "name": "closing-brace",
+  "category": "Basic Syntax",
+  "description": "Should complete closing brace for function",
+  "cursorPosition": {
+    "line": 1,
+    "character": 23
+  },
+  "expectedPatterns": [
+    "}",
+    "\\n}"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

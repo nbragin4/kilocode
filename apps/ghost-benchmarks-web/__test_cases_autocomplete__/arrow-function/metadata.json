@@ -1,0 +1,17 @@
+{
+  "name": "arrow-function",
+  "category": "Function Declaration",
+  "description": "Should complete arrow function syntax",
+  "cursorPosition": {
+    "line": 0,
+    "character": 20
+  },
+  "expectedPatterns": [
+    "=>",
+    "=> {",
+    "=> a \\+ b"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

@@ -1,0 +1,20 @@
+{
+  "name": "array-method",
+  "category": "Method Access",
+  "description": "Should suggest array methods",
+  "cursorPosition": {
+    "line": 1,
+    "character": 4
+  },
+  "expectedPatterns": [
+    "map",
+    "filter",
+    "forEach",
+    "push",
+    "pop",
+    "length"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

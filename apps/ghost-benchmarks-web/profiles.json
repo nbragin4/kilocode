@@ -1,0 +1,26 @@
+[
+	{
+		"name": "mercury",
+		"model": "inception/mercury-coder",
+		"description": "Mercury Coder - Specialized code completion with optimized prompts",
+		"provider": "openrouter"
+	},
+	{
+		"name": "fim",
+		"model": "mistralai/codestral-2508",
+		"description": "FIM (Fill-in-Middle) - Fast code completion using native FIM tokens",
+		"provider": "openrouter"
+	},
+	{
+		"name": "hole-filler",
+		"model": "openai/gpt-4o-mini",
+		"description": "Hole-Filler - Chat model with XML parsing for code completion",
+		"provider": "openrouter"
+	},
+	{
+		"name": "legacy-xml",
+		"model": "anthropic/claude-3.5-sonnet",
+		"description": "Legacy XML - High precision with XML format compliance",
+		"provider": "openrouter"
+	}
+]

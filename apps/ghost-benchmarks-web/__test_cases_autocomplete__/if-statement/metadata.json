@@ -1,0 +1,17 @@
+{
+  "name": "if-statement",
+  "category": "Control Flow",
+  "description": "Should complete if statement body",
+  "cursorPosition": {
+    "line": 1,
+    "character": 11
+  },
+  "expectedPatterns": [
+    "{",
+    "{\\n",
+    "{\\s*\\n\\s*console.log"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

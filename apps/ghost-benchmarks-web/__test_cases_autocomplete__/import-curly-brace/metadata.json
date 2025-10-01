@@ -1,0 +1,17 @@
+{
+  "name": "import-curly-brace",
+  "category": "Import Statement",
+  "description": "Should suggest import syntax options",
+  "cursorPosition": {
+    "line": 0,
+    "character": 7
+  },
+  "expectedPatterns": [
+    "{",
+    "React",
+    "\\* as"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}
