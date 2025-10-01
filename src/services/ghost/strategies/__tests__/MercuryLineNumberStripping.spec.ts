@@ -40,6 +40,40 @@ describe("MercuryStrategy.stripLineNumbers", () => {
 			}"
 		`)
 	})
+
+	it("should strip line numbers without space before pipe (benchmark format)", () => {
+		const input = `9|    user.active
+10|];`
+
+		const result = (strategy as any).stripLineNumbers(input)
+
+		expect(result).toBe(`    user.active
+];`)
+	})
+
+	it("should handle line numbers at start of content", () => {
+		const input = `1|const x = 1;
+2|const y = 2;`
+
+		const result = (strategy as any).stripLineNumbers(input)
+
+		expect(result).toBe(`const x = 1;
+const y = 2;`)
+	})
+
+	it("should handle multi-digit line numbers", () => {
+		const input = `98|    return value;
+99|}
+100|
+101|// Next function`
+
+		const result = (strategy as any).stripLineNumbers(input)
+
+		expect(result).toBe(`    return value;
+}
+
+// Next function`)
+	})
 })
 
 describe("MercuryStrategy.stripMercuryMarkers", () => {

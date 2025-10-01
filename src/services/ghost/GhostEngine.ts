@@ -181,9 +181,9 @@ export class GhostEngine {
 		// 💾 CACHE STORAGE: Store successful suggestions in cache
 		if (result.suggestions.hasSuggestions()) {
 			this.suggestionCache.store(engineContext.document, engineContext.position, result.suggestions)
-			if (!process.env.GHOST_QUIET_MODE) {
-				console.log("💾 Ghost Cache: Stored successful suggestions in cache")
-			}
+			// if (!process.env.GHOST_QUIET_MODE) {
+			// 	console.log("💾 Ghost Cache: Stored successful suggestions in cache")
+			// }
 		}
 
 		// Apply suggestions if requested

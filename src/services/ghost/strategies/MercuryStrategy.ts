@@ -70,8 +70,8 @@ export class MercuryStrategy implements PromptStrategy {
 		const baseInstructions = `You are Mercury, an AI coding assistant by Inception Labs. Complete code within <|code_to_edit|> tags based on developer context.
 
 # Context Available
-- recently_viewed_code_snippets: Recent code the developer viewed (oldest to newest, may be irrelevant)
-- current_file_content: Full file context with line numbers (#|)
+- recently_viewed_code_snippets: Recent code the developer viewed (oldest to newest, with line numbers in the form #| to help you understand the edit diff history)
+- current_file_content: Full file context with line numbers in the form #| for reference
 - edit_diff_history: Recent changes (oldest to latest, may be irrelevant)
 - <|cursor|>: Current cursor position
 
@@ -87,7 +87,7 @@ Predict and complete the developer's next changes in <|code_to_edit|>. Continue 
 # Output Rules
 - Return ONLY revised code between <|code_to_edit|> and <|/code_to_edit|> tags
 - If no changes needed, return original code unchanged
-- NEVER include line numbers (#|) in your response
+- There are line numbers in the form #| in the code displayed to you above, but these are just for your reference. Please do not include the numbers of the form #| in your response.
 - NEVER duplicate code outside the tags
 - Avoid reverting developer's last change unless obvious errors exist`
 
@@ -446,13 +446,15 @@ Predict and complete the developer's next changes in <|code_to_edit|>. Continue 
 
 	/**
 	 * Strip line numbers from Mercury response
+	 * Handles formats: "N|content", "N |content", "N | content"
 	 */
 	stripLineNumbers(content: string): string {
 		return content
 			.split("\n")
 			.map((line) => {
-				// Remove line numbers like "1|", "10|", etc. from the beginning of lines
-				return line.replace(/^\d+\|\s?/, "")
+				// Remove line numbers with optional space before pipe: "1|", "1 |", "10|", "10 |"
+				// Do NOT consume spaces after pipe - those are intentional indentation
+				return line.replace(/^\d+\s*\|/, "")
 			})
 			.join("\n")
 	}
@@ -585,17 +587,18 @@ Predict and complete the developer's next changes in <|code_to_edit|>. Continue 
 		const content = document.getText()
 
 		// Add line numbers and cursor marker
+		// Use #| format (matching Continue's approach) for line numbers
 		const lines = content.split("\n")
 		const numberedLines = lines.map((line, index) => {
 			const lineNumber = index + 1
-			let numberedLine = `${lineNumber}|${line}`
+			let numberedLine = `${lineNumber} #| ${line}`
 
 			// Add cursor marker if this is the cursor line
 			if (context.range && index === context.range.start.line) {
 				const character = context.range.start.character
 				const beforeCursor = line.substring(0, character)
 				const afterCursor = line.substring(character)
-				numberedLine = `${lineNumber}|${beforeCursor}${MERCURY_CURSOR}${afterCursor}`
+				numberedLine = `${lineNumber} #| ${beforeCursor}${MERCURY_CURSOR}${afterCursor}`
 			}
 
 			return numberedLine

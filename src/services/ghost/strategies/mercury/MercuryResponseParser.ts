@@ -1,6 +1,7 @@
 /**
  * Handles parsing and cleaning Mercury's responses to extract the updated code.
- * Mercury responses can come in various formats (markdown, with/without markers).
+ * Following Continue's approach: extract code from markdown blocks, rely on clear
+ * prompting to prevent line numbers in responses.
  */
 export class MercuryResponseParser {
 	private static readonly MERCURY_MARKERS = {
@@ -10,81 +11,63 @@ export class MercuryResponseParser {
 
 	/**
 	 * Extract clean code content from Mercury's response.
-	 * Handles multiple fallback strategies for robust parsing.
+	 * Matches Continue's extractCompletion method.
 	 */
 	public extractCleanCode(response: string): string {
-		// Step 1: Extract from markdown code blocks first
-		let extractedCode = this.extractFromCodeBlocks(response)
+		// Extract from markdown code blocks (Continue's approach)
+		const extractedCode = this.extractFromCodeBlocks(response)
 
-		// Step 2: Handle Mercury markers (fallback in case they leak through)
-		extractedCode = this.stripMercuryMarkers(extractedCode)
+		// Strip Mercury markers if they leak through (shouldn't happen with good prompting)
+		const cleaned = this.stripMercuryMarkers(extractedCode)
 
-		return extractedCode.trim()
+		return cleaned.trim()
 	}
 
 	/**
-	 * Extract content from markdown code blocks (```language code ```)
+	 * Extract content from markdown code blocks.
+	 * Matches Continue's slice-based extraction approach.
 	 */
 	private extractFromCodeBlocks(message: string): string {
-		// Look for code blocks with optional language specifiers
-		const codeBlockRegex = /```(?:\w+)?\s*\n?([\s\S]*?)\n?```/g
-		const matches = codeBlockRegex.exec(message)
+		// Continue's exact approach: extract between ``` markers
+		const startMarker = "```\n"
+		const endMarker = "\n\n```"
 
-		if (matches && matches[1]) {
-			return matches[1].trim()
+		const startIndex = message.indexOf(startMarker)
+		const endIndex = message.lastIndexOf(endMarker)
+
+		if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
+			return message.slice(startIndex + startMarker.length, endIndex)
 		}
 
-		// Fallback: try simpler patterns
-		const startMarker = "```"
-		const startIndex = message.indexOf(startMarker)
-		const endIndex = message.lastIndexOf(startMarker)
+		// Fallback: try without the newlines
+		const simpleStart = message.indexOf("```")
+		const simpleEnd = message.lastIndexOf("```")
 
-		if (startIndex !== -1 && endIndex !== -1 && startIndex !== endIndex) {
-			// Find the end of the first line after the opening ```
-			let contentStart = message.indexOf("\n", startIndex)
+		if (simpleStart !== -1 && simpleEnd !== -1 && simpleStart !== simpleEnd) {
+			let contentStart = message.indexOf("\n", simpleStart)
 			if (contentStart === -1) {
-				contentStart = startIndex + 3
+				contentStart = simpleStart + 3
 			} else {
 				contentStart += 1
 			}
-
-			const content = message.slice(contentStart, endIndex).trim()
-			return content
+			return message.slice(contentStart, simpleEnd).trim()
 		}
 
-		// No code blocks found, return the original message
+		// No code blocks found, return original
 		return message.trim()
 	}
 
 	/**
 	 * Strip Mercury markers from content.
-	 * These shouldn't be in the response, but add fallback in case they leak through.
-	 * Also handles line number stripping while preserving indentation.
+	 * These shouldn't be in responses with proper prompting, but handle as fallback.
 	 */
 	private stripMercuryMarkers(content: string): string {
 		const { OPEN, CLOSE } = MercuryResponseParser.MERCURY_MARKERS
 
-		// Remove opening marker
 		let cleaned = content.replace(new RegExp(OPEN, "g"), "")
-
-		// Remove closing marker
 		cleaned = cleaned.replace(new RegExp(CLOSE.replace(/[|]/g, "\\|"), "g"), "")
 
-		// CRITICAL FIX: Remove line numbers while preserving indentation
-		// Pattern: "123 | content" -> "content" (keeping all spaces after |)
-		cleaned = this.stripLineNumbersPreservingIndentation(cleaned)
-
 		return cleaned
-	}
-
-	/**
-	 * Strip line numbers from Mercury response while preserving indentation.
-	 * Fixes the critical whitespace loss bug.
-	 */
-	private stripLineNumbersPreservingIndentation(content: string): string {
-		// Regex to match: [digits] [space] [|] [content including spaces]
-		// Captures everything after "| " to preserve indentation
-		return content.replace(/^\d+\s*\|\s?/gm, "")
 	}
 
 	/**

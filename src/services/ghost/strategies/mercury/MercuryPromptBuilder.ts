@@ -29,15 +29,16 @@ export class MercuryPromptBuilder {
 		const { editableStart, editableEnd } = editableRegion
 
 		// Build numbered lines with markers
+		// Use #| format (matching Continue's approach) for line numbers
 		const numberedLines = lines.map((line, index) => {
-			let numberedLine = `${index + 1} | ${line}`
+			let numberedLine = `${index + 1} #| ${line}`
 
 			// Add cursor marker if this is the cursor line
 			if (index === cursorLine) {
 				const beforeCursor = line.substring(0, cursorCharacter)
 				const afterCursor = line.substring(cursorCharacter)
 				const lineWithCursor = `${beforeCursor}${CURSOR}${afterCursor}`
-				numberedLine = `${index + 1} | ${lineWithCursor}`
+				numberedLine = `${index + 1} #| ${lineWithCursor}`
 			}
 
 			// Add editable region markers
