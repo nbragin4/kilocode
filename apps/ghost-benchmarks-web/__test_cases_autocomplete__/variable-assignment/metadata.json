@@ -1,0 +1,18 @@
+{
+  "name": "variable-assignment",
+  "category": "Variable Assignment",
+  "description": "Should suggest common variable assignments",
+  "cursorPosition": {
+    "line": 0,
+    "character": 17
+  },
+  "expectedPatterns": [
+    "'",
+    "\"",
+    "null",
+    "undefined"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

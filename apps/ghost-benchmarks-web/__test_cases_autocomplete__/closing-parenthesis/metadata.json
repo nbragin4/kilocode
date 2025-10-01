@@ -1,0 +1,15 @@
+{
+  "name": "closing-parenthesis",
+  "category": "Basic Syntax",
+  "description": "Should complete closing parenthesis for function call",
+  "cursorPosition": {
+    "line": 0,
+    "character": 18
+  },
+  "expectedPatterns": [
+    "\\)"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

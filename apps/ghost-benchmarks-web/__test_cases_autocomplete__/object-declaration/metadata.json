@@ -1,0 +1,17 @@
+{
+  "name": "object-declaration",
+  "category": "Variable Assignment",
+  "description": "Should suggest object initialization",
+  "cursorPosition": {
+    "line": 0,
+    "character": 15
+  },
+  "expectedPatterns": [
+    "{",
+    "{}",
+    "{\\s*\\n"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}

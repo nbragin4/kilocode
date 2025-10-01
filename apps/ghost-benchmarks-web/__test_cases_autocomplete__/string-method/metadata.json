@@ -1,0 +1,20 @@
+{
+  "name": "string-method",
+  "category": "Method Access",
+  "description": "Should suggest string methods",
+  "cursorPosition": {
+    "line": 1,
+    "character": 4
+  },
+  "expectedPatterns": [
+    "substring",
+    "charAt",
+    "indexOf",
+    "length",
+    "toUpperCase",
+    "toLowerCase"
+  ],
+  "isAutocompleteTest": true,
+  "hasLiveModeSupport": true,
+  "shouldCompile": true
+}
