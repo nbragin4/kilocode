@@ -8,12 +8,11 @@ import { GhostSuggestionCache } from "./GhostSuggestionCache"
 import { ProviderSettingsManager } from "../../core/config/ProviderSettingsManager"
 import { GhostDocumentStore } from "./GhostDocumentStore"
 import { TelemetryService } from "@roo-code/telemetry"
-import { TelemetryEventName } from "@roo-code/types"
+import { TelemetryEventName, GhostServiceSettings } from "@roo-code/types"
 import { createGhostSuggestionOutcome, GhostSuggestionOutcome, PromptMetadata } from "./types/GhostSuggestionOutcome"
 import { GhostEngineContext } from "./types/platform-independent"
 import { IGhostApplicator } from "./applicators/IGhostApplicator"
 import { GhostProfile } from "./profiles/GhostProfile"
-import { VSCodeGhostAdapter } from "./adapters/VSCodeGhostAdapter"
 import { GhostCancellationError } from "./errors/GhostErrors"
 
 /**
@@ -83,8 +82,8 @@ export class GhostEngine {
 	/**
 	 * Load the model with settings
 	 */
-	public async load(settings: any): Promise<void> {
-		await this.model.reload(settings)
+	public async load(settings: GhostServiceSettings | null): Promise<void> {
+		await this.model.reload(settings || {})
 	}
 
 	/**
@@ -255,7 +254,7 @@ export class GhostEngine {
 	private async handleStreamingSuggestions(
 		context: GhostSuggestionContext,
 		engineContext: GhostEngineContext,
-		strategyInfo: any,
+		strategyInfo: { systemPrompt: string; userPrompt: string; strategy: any },
 		strategy: any,
 		startTime: number,
 	): Promise<GhostEngineResult> {
@@ -279,7 +278,7 @@ export class GhostEngine {
 		const onChunk = (chunk: any) => {
 			try {
 				this.checkCancellation()
-			} catch (error) {
+			} catch (_error) {
 				return // Stop processing if cancelled
 			}
 
@@ -297,7 +296,14 @@ export class GhostEngine {
 			}
 		}
 
-		let usageInfo: any = {}
+		let usageInfo: {
+			cost?: number
+			inputTokens?: number
+			outputTokens?: number
+			cacheReadTokens?: number
+			cacheWriteTokens?: number
+			modelProvider?: string
+		} = {}
 
 		try {
 			// Start streaming generation
@@ -386,10 +392,17 @@ export class GhostEngine {
 	private async generateGhostSuggestionOutcome(
 		context: GhostSuggestionContext,
 		engineContext: GhostEngineContext,
-		strategyInfo: any,
+		strategyInfo: { systemPrompt: string; userPrompt: string; strategy: any },
 		strategy: any,
 		response: string,
-		usageInfo: any,
+		usageInfo: {
+			cost?: number
+			inputTokens?: number
+			outputTokens?: number
+			cacheReadTokens?: number
+			cacheWriteTokens?: number
+			modelProvider?: string
+		},
 		startTime: number,
 	): Promise<GhostSuggestionOutcome | null> {
 		try {

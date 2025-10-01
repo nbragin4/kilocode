@@ -37,7 +37,7 @@ export function combineCommandSequences(messages: ClineMessage[]): ClineMessage[
 		// Handle MCP server requests
 		if (msg.type === "ask" && msg.ask === "use_mcp_server") {
 			// Look ahead for MCP responses
-			let responses: string[] = []
+			const responses: string[] = []
 			let j = i + 1
 
 			while (j < messages.length) {

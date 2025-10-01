@@ -5,7 +5,6 @@ import {
 	GhostPosition,
 	GhostRange,
 	GhostLineInfo,
-	GhostTypes,
 } from "../types/platform-independent"
 import { GhostEngineResult } from "../GhostEngine"
 import { GhostSuggestionContext } from "../types"
@@ -135,7 +134,6 @@ export class VSCodeGhostAdapter {
 		}
 
 		// Extract prefix and suffix from document and position
-		const documentText = vscodeContext.document.getText()
 		const { prefix, suffix } = this.extractPrefixSuffix(vscodeContext.document, position)
 
 		// Get workspace path

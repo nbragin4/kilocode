@@ -345,7 +345,7 @@ export class GhostProvider {
 
 		const lines = response.split("\n")
 		let inCodeBlock = false
-		let codeLines: string[] = []
+		const codeLines: string[] = []
 
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i].trim()

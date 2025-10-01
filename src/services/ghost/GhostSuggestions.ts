@@ -503,7 +503,7 @@ export class GhostSuggestionsState {
 
 		// For operations within the same group, apply in forward order with line offset tracking
 		const sortedOps = [...operations].sort((a, b) => a.line - b.line)
-		let lineOffset = 0
+		const lineOffset = 0
 
 		// Group consecutive operations and apply them as blocks
 		const operationBlocks: GhostSuggestionEditOperation[][] = []

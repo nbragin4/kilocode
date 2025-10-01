@@ -231,7 +231,7 @@ export class VSCodeGhostApplicator implements IGhostApplicator {
 	 * Revert placeholder operations (used for temporary visual feedback)
 	 */
 	private async revertOperationsPlaceholder(documentUri: vscode.Uri, operations: GhostSuggestionEditOperation[]) {
-		let workspaceEdit = new vscode.WorkspaceEdit()
+		const workspaceEdit = new vscode.WorkspaceEdit()
 		let deletedLines: number = 0
 		for (const op of operations) {
 			if (op.type === "-") {

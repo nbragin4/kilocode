@@ -6,8 +6,8 @@ export class GhostStrategy {
 	private currentStrategy: PromptStrategy | null = null
 	private debug: boolean
 
-	constructor(options?: { debug: boolean }) {
-		this.debug = true //options?.debug ?? false
+	constructor(_options?: { debug: boolean }) {
+		this.debug = true // Always enable debug for now
 	}
 
 	/**
@@ -20,7 +20,7 @@ export class GhostStrategy {
 	/**
 	 * Get the system prompt using the current strategy
 	 */
-	async getSystemPrompt(context: GhostSuggestionContext): Promise<string> {
+	async getSystemPrompt(_context: GhostSuggestionContext): Promise<string> {
 		if (!this.currentStrategy) {
 			throw new Error("No prompt strategy set. Call setStrategy() first.")
 		}
@@ -137,7 +137,7 @@ export class GhostStrategy {
 	/**
 	 * Get completed changes (for debugging compatibility)
 	 */
-	public getStreamingCompletedChanges(): any[] {
+	public getStreamingCompletedChanges(): unknown[] {
 		// For compatibility with tests - strategies handle their own state
 		return []
 	}

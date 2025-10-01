@@ -91,7 +91,7 @@ export function pruneLinesFromTop(text: string, maxTokens: number, modelName?: s
 	const lineTokens = lines.map((line) => countTokens(line, modelName))
 	let totalTokens = lineTokens.reduce((sum, tokens) => sum + tokens, 0)
 	let start = 0
-	let currentLines = lines.length
+	const currentLines = lines.length
 
 	// Calculate initial token count including newlines
 	totalTokens += Math.max(0, currentLines - 1) // Add tokens for joining newlines

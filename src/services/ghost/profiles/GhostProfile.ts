@@ -11,7 +11,7 @@ export interface GhostProfileConfig {
 	apiProfileId: string
 	promptStrategyType: string
 	isDefault?: boolean
-	customSettings?: Record<string, any>
+	customSettings?: Record<string, unknown>
 }
 
 /**
@@ -26,7 +26,7 @@ export class GhostProfile {
 	public readonly apiProfileId: string
 	public readonly promptStrategyType: string
 	public readonly isDefault: boolean
-	public readonly customSettings: Record<string, any>
+	public readonly customSettings: Record<string, unknown>
 
 	private apiHandler: ApiHandler | null = null
 	private promptStrategy: PromptStrategy | null = null
@@ -110,7 +110,7 @@ export class GhostProfile {
 	/**
 	 * Update custom settings (creates new profile instance)
 	 */
-	public withCustomSettings(settings: Record<string, any>): GhostProfile {
+	public withCustomSettings(settings: Record<string, unknown>): GhostProfile {
 		const config: GhostProfileConfig = {
 			id: this.id,
 			name: this.name,

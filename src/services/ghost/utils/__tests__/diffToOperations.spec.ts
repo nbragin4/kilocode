@@ -129,7 +129,7 @@ describe("diffToOperations", () => {
 			})
 
 			// Manually apply operations to verify they work (simulate StringGhostApplicator)
-			let result = original
+			const result = original
 			const lines = result.split("\n")
 
 			// Apply operations in reverse order (like StringGhostApplicator does)
@@ -253,7 +253,7 @@ describe("diffToOperations", () => {
 			])
 
 			// Test that these operations work when applied
-			let result = original
+			const result = original
 			const lines = result.split("\n")
 
 			// Apply delete operation

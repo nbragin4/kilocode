@@ -188,6 +188,7 @@ export interface GhostUri {
 /**
  * Helper functions for working with platform-independent types
  */
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace GhostTypes {
 	/**
 	 * Create a new GhostPosition

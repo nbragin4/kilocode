@@ -1,5 +1,4 @@
 import { GhostServiceSettings } from "@roo-code/types"
-import { ApiHandler } from "../../api"
 import { ProviderSettingsManager } from "../../core/config/ProviderSettingsManager"
 import { ApiStreamChunk } from "../../api/transform/stream"
 import { GhostProfile } from "./profiles/GhostProfile"
@@ -123,7 +122,6 @@ export class GhostModel {
 		}
 
 		const handler = this.currentProfile.getApiHandler()
-		const strategy = this.currentProfile.getPromptStrategy()
 
 		const stream = handler.createMessage(systemPrompt, [
 			{ role: "user", content: [{ type: "text", text: userPrompt }] },

@@ -213,7 +213,7 @@ export class GhostStreamingParser {
 		}> = []
 
 		for (const change of filteredChanges) {
-			let searchIndex = this.findBestMatch(modifiedContent, change.search)
+			const searchIndex = this.findBestMatch(modifiedContent, change.search)
 
 			if (searchIndex !== -1) {
 				// Check for overlapping changes before applying

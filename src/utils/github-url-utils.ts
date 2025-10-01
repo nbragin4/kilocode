@@ -195,7 +195,7 @@ export async function createAndOpenGitHubIssue(
 	params: Map<string, string>,
 ): Promise<void> {
 	// Construct the base URL
-	let baseUrl = `https://github.com/${repoOwner}/${repoName}/issues/new`
+	const baseUrl = `https://github.com/${repoOwner}/${repoName}/issues/new`
 
 	// Add template parameter if provided
 	if (issueTemplate) {
