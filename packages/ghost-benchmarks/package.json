@@ -14,9 +14,9 @@
 		"dev": "node esbuild.config.js --watch",
 		"test": "vitest",
 		"test:watch": "vitest --watch",
-		"benchmark": "npm run build; node dist/benchmark-cli.cjs",
-		"benchmark:list": "npm run build; node dist/benchmark-cli.cjs list",
-		"benchmark:matrix": "npm run build; node dist/benchmark-cli.cjs matrix",
+		"benchmark": "dotenvx run node dist/benchmark-cli.cjs",
+		"benchmark:list": "dotenvx run node dist/benchmark-cli.cjs list",
+		"benchmark:matrix": "dotenvx run node dist/benchmark-cli.cjs matrix",
 		"lint": "eslint src/**/*.ts",
 		"clean": "rm -rf dist"
 	},
@@ -47,6 +47,7 @@
 	"devDependencies": {
 		"@roo-code/config-eslint": "workspace:^",
 		"@types/node": "^20.0.0",
+		"@dotenvx/dotenvx": "^1.34.0",
 		"esbuild": "^0.25.0",
 		"eslint": "^9.27.0",
 		"typescript": "^5.8.3",
