@@ -2,7 +2,7 @@ import crypto from "crypto"
 import * as vscode from "vscode"
 import { t } from "../../i18n"
 import { GhostDocumentStore } from "./GhostDocumentStore"
-import { GhostStrategy } from "./GhostStrategy"
+import { GhostXmlStrategy } from "./GhostXmlStrategy"
 import { GhostModel } from "./GhostModel"
 import { GhostWorkspaceEdit } from "./GhostWorkspaceEdit"
 import { GhostDecorations } from "./GhostDecorations"
@@ -26,7 +26,7 @@ export class GhostProvider {
 	private decorations: GhostDecorations
 	private documentStore: GhostDocumentStore
 	private model: GhostModel
-	private strategy: GhostStrategy
+	private strategy: GhostXmlStrategy
 	private workspaceEdit: GhostWorkspaceEdit
 	private suggestions: GhostSuggestionsState = new GhostSuggestionsState()
 	private context: vscode.ExtensionContext
@@ -62,7 +62,7 @@ export class GhostProvider {
 		// Register Internal Components
 		this.decorations = new GhostDecorations()
 		this.documentStore = new GhostDocumentStore()
-		this.strategy = new GhostStrategy({ debug: true })
+		this.strategy = new GhostXmlStrategy({ debug: true })
 		this.workspaceEdit = new GhostWorkspaceEdit()
 		this.providerSettingsManager = new ProviderSettingsManager(context)
 		this.model = new GhostModel()
