@@ -1,7 +1,7 @@
-import { buildApiHandler, ApiHandler } from "../../../api"
+import { buildApiHandler } from "../../../api"
 import { ProviderSettingsManager } from "../../../core/config/ProviderSettingsManager"
 import { GhostProfile, GhostProfileConfig } from "./GhostProfile"
-import { PromptStrategy, UseCaseType } from "../types/PromptStrategy"
+import { PromptStrategy } from "../types/PromptStrategy"
 import { MercuryStrategy } from "../strategies/MercuryStrategy"
 import { LegacyXmlStrategy } from "../strategies/LegacyXmlStrategy"
 import { HoleFillStrategy } from "../strategies/HoleFillStrategy"
@@ -251,12 +251,12 @@ export class GhostProfileManager {
 			defaultProfiles.push({
 				id: "fim-coder",
 				name: "Code Model FIM",
-				description: "Qwen 2.5 Coder with native fill-in-middle tokens",
+				description: "Qwen 2.5-7B-Instruct with native fill-in-middle tokens (fast, non-thinking)",
 				apiProfileId: openRouterProfile.id,
 				promptStrategyType: "fim",
 				isDefault: false,
 				customSettings: {
-					openRouterModelId: "qwen/qwen-2.5-coder-32b-instruct",
+					openRouterModelId: "qwen/qwen-2.5-7b-instruct",
 				},
 			})
 		}

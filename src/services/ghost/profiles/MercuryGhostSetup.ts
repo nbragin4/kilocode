@@ -38,11 +38,6 @@ export class MercuryGhostSetup {
 				return null
 			}
 
-			// Log the created profiles
-			for (const profile of createdProfiles) {
-				console.log(`Created ghost suggestion profile: ${profile.name} (${profile.getPromptStrategy().name})`)
-			}
-
 			// Return the default profile (should be Mercury if available)
 			const defaultProfile = this.profileManager.getDefaultProfile()
 			if (defaultProfile) {
