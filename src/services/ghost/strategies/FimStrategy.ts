@@ -62,7 +62,7 @@ Provide only the missing code without any explanations or additional formatting.
 	 */
 	finishProcessing(): StreamingParseResult {
 		// Clean up any stop tokens and reasoning blocks
-		let cleanResponse = this.cleanResponse(this.accumulatedResponse)
+		const cleanResponse = this.cleanResponse(this.accumulatedResponse)
 
 		const trimmedResponse = cleanResponse.trim()
 		if (trimmedResponse) {

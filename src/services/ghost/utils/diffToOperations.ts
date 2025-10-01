@@ -1,4 +1,3 @@
-import * as vscode from "vscode"
 import { DiffLine } from "./myers"
 import { GhostSuggestionEditOperation, GhostSuggestionContext } from "../types"
 import { GhostSuggestionsState } from "../GhostSuggestions"

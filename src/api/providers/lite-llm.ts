@@ -105,7 +105,7 @@ export class LiteLLMHandler extends RouterProvider implements SingleCompletionHa
 		}
 
 		// Required by some providers; others default to max tokens allowed
-		let maxTokens: number | undefined = info.maxTokens ?? undefined
+		const maxTokens: number | undefined = info.maxTokens ?? undefined
 
 		const requestOptions: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
 			model: modelId,

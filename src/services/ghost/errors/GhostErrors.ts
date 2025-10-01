@@ -23,7 +23,7 @@ export abstract class GhostError extends Error {
 	/**
 	 * Get error details for logging/telemetry
 	 */
-	public getDetails(): Record<string, any> {
+	public getDetails(): Record<string, unknown> {
 		return {
 			name: this.name,
 			message: this.message,
@@ -65,7 +65,7 @@ export class GhostStrategyError extends GhostError {
 		super(message, "GHOST_STRATEGY_ERROR")
 	}
 
-	public override getDetails(): Record<string, any> {
+	public override getDetails(): Record<string, unknown> {
 		return {
 			...super.getDetails(),
 			strategyName: this.strategyName,
@@ -86,7 +86,7 @@ export class GhostModelError extends GhostError {
 		super(message, "GHOST_MODEL_ERROR")
 	}
 
-	public override getDetails(): Record<string, any> {
+	public override getDetails(): Record<string, unknown> {
 		return {
 			...super.getDetails(),
 			modelName: this.modelName,
@@ -106,7 +106,7 @@ export class GhostConfigError extends GhostError {
 		super(message, "GHOST_CONFIG_ERROR")
 	}
 
-	public override getDetails(): Record<string, any> {
+	public override getDetails(): Record<string, unknown> {
 		return {
 			...super.getDetails(),
 			configType: this.configType,
@@ -134,7 +134,7 @@ export class GhostTemplateError extends GhostError {
 		super(message, "GHOST_TEMPLATE_ERROR")
 	}
 
-	public override getDetails(): Record<string, any> {
+	public override getDetails(): Record<string, unknown> {
 		return {
 			...super.getDetails(),
 			templatePath: this.templatePath,
@@ -145,6 +145,7 @@ export class GhostTemplateError extends GhostError {
 /**
  * Utility functions for error handling
  */
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace GhostErrorUtils {
 	/**
 	 * Check if an error is a Ghost error

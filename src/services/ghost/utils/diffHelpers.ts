@@ -167,7 +167,7 @@ function processLimitedSizeGroup(
 	offset: number,
 ): DiffGroup {
 	// Calculate the starting line in old content
-	let oldContentLineStart = countOldContentLines(diffLines, 0, start - 1)
+	const oldContentLineStart = countOldContentLines(diffLines, 0, start - 1)
 
 	// Track how many lines we have left in our group size budget
 	let remainingGroupSize = maxGroupSize
@@ -196,7 +196,7 @@ function processLimitedSizeGroup(
 	currentLine--
 
 	// Calculate the end line in old content
-	let oldContentLineEnd = oldContentLineStart + countOldContentLines(diffLines, start, currentLine) - 1
+	const oldContentLineEnd = oldContentLineStart + countOldContentLines(diffLines, start, currentLine) - 1
 
 	return {
 		startLine: oldContentLineStart + offset,
@@ -210,10 +210,10 @@ function processLimitedSizeGroup(
  */
 function processFlexibleSizeGroup(diffLines: DiffLine[], start: number, end: number, offset: number): DiffGroup {
 	// Calculate the starting line in old content
-	let oldContentLineStart = countOldContentLines(diffLines, 0, start - 1)
+	const oldContentLineStart = countOldContentLines(diffLines, 0, start - 1)
 
 	// Calculate the end line in old content
-	let oldContentLineEnd = oldContentLineStart + countOldContentLines(diffLines, start, end) - 1
+	const oldContentLineEnd = oldContentLineStart + countOldContentLines(diffLines, start, end) - 1
 
 	return {
 		startLine: oldContentLineStart + offset,
