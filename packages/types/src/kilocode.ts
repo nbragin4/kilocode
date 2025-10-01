@@ -17,6 +17,7 @@ export const ghostServiceSettingsSchema = z
 		enableSmartInlineTaskKeybinding: z.boolean().optional(),
 		enableCustomProvider: z.boolean().optional(),
 		apiConfigId: z.string().optional(),
+		ghostStrategyId: z.string().optional(),
 		showGutterAnimation: z.boolean().optional(),
 	})
 	.optional()
