@@ -152,3 +152,106 @@
 6. **Test Validation**: Ensure core functionality preserved throughout cleanup
 
 **Example**: Mercury Coder Integration Cleanup demonstrated this pattern with excellent results.
+
+## Ghost System Architectural Improvements - Future Tasks
+
+**Date**: 2025-01-26
+**Status**: Critical issues resolved, medium-term improvements identified
+
+### Completed Critical Fixes ✅
+
+**Major Architectural Cleanup Completed**:
+
+- ✅ **Type Safety Restored**: Fixed `GhostEngineResult.profile: any` → `GhostProfile | null`
+- ✅ **Platform Independence**: Removed temporary casts and mixed abstraction levels
+- ✅ **Unified Error Hierarchy**: Created complete `GhostError` hierarchy with specific subtypes
+- ✅ **Proper Cancellation**: Replaced boolean flags with `AbortController`-based cancellation
+- ✅ **Code Duplication Eliminated**: Created `BaseTemplateStrategy` for FIM/HoleFill strategies
+- ✅ **Async I/O Fixed**: Replaced `fs.readFileSync()` with `fs.promises.readFile()`
+- ✅ **Debug Code Cleaned**: Removed commented blocks and added named constants
+- ✅ **Streaming Standardized**: All strategies use consistent streaming interface
+
+**Test Results**: All 110 Ghost system tests passing, linting passes with zero warnings.
+
+### Medium-term Architectural Improvements (Future Tasks)
+
+**1. Strategy Factory Plugin System**
+
+**Current Issue**: [`GhostProfileManager.registerBuiltInStrategyFactories()`](src/services/ghost/profiles/GhostProfileManager.ts:37) hardcodes strategy registration, violating Open/Closed principle.
+
+**Solution**: Implement plugin-based strategy registration system:
+
+```typescript
+// Allow dynamic strategy registration
+profileManager.registerStrategy(new CustomStrategyFactory())
+```
+
+**Files to Modify**:
+
+- `src/services/ghost/profiles/GhostProfileManager.ts`
+- `src/services/ghost/types/PromptStrategy.ts`
+
+**2. True Platform Independence**
+
+**Current Issue**: [`GhostEngine.executeCompletion()`](src/services/ghost/GhostEngine.ts:109) still requires platform-specific context conversion.
+
+**Solution**: Make GhostEngine truly platform-agnostic:
+
+- Update `GhostContext.generate()` to work with platform-independent types
+- Eliminate all VSCode-specific dependencies from core engine
+- Create proper adapter pattern for all platform integrations
+
+**Files to Modify**:
+
+- `src/services/ghost/GhostContext.ts`
+- `src/services/ghost/GhostEngine.ts`
+- `src/services/ghost/adapters/VSCodeGhostAdapter.ts`
+
+**3. Event-Driven Architecture**
+
+**Current Issue**: Tight coupling between components through direct method calls.
+
+**Solution**: Implement proper event system for loose coupling:
+
+- Ghost suggestion events (generated, applied, cancelled)
+- Document change events with proper debouncing
+- Profile switch events with state management
+
+**Files to Create**:
+
+- `src/services/ghost/events/GhostEventBus.ts`
+- `src/services/ghost/events/GhostEvents.ts`
+
+**4. Performance Optimization**
+
+**Current Issue**: No caching or lazy loading for expensive operations.
+
+**Solution**: Add comprehensive performance optimizations:
+
+- Template pre-loading during initialization
+- Strategy instance caching
+- Context generation memoization
+- Suggestion cache improvements
+
+**Files to Modify**:
+
+- `src/services/ghost/strategies/BaseTemplateStrategy.ts`
+- `src/services/ghost/GhostSuggestionCache.ts`
+- `src/services/ghost/GhostContext.ts`
+
+### Minor Improvements (Low Priority)
+
+**1. Remaining Type Safety**: Some `any` types in non-critical interfaces
+**2. Debug Logging**: Centralized logging strategy with proper levels
+**3. Configuration Validation**: Runtime validation of profile configurations
+**4. Error Recovery**: Enhanced error recovery for network failures
+
+### Implementation Priority
+
+1. **High**: Strategy Factory Plugin System (enables extensibility)
+2. **Medium**: True Platform Independence (architectural purity)
+3. **Medium**: Event-Driven Architecture (loose coupling)
+4. **Low**: Performance Optimization (system already fast)
+5. **Low**: Minor improvements (polish)
+
+**Estimated Effort**: 2-3 days for high-priority items, 1 week for complete architectural overhaul.
