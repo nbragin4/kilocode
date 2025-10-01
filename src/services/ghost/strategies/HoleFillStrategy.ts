@@ -1,45 +1,18 @@
-import * as vscode from "vscode"
-import * as path from "node:path"
-import * as fs from "node:fs"
-import * as Handlebars from "handlebars"
-import { GhostSuggestionContext } from "../types"
 import { StreamingParseResult } from "../GhostStreamingParser"
-import { GhostSuggestionsState } from "../GhostSuggestions"
-import { PromptStrategy, UseCaseType } from "../types/PromptStrategy"
-import { createSuggestionsFromCompletion } from "../utils/diffToOperations"
+import { UseCaseType } from "../types/PromptStrategy"
+import { BaseTemplateStrategy } from "./BaseTemplateStrategy"
 
 /**
  * Hole Fill Strategy for chat models (GPT, Claude, Granite).
  * Uses Handlebars templates to create hole-filler prompts and parses <COMPLETION> XML responses.
  * Designed for models without native fill-in-middle support.
  */
-export class HoleFillStrategy implements PromptStrategy {
+export class HoleFillStrategy extends BaseTemplateStrategy {
 	public readonly name: string = "Hole Filler"
 	public readonly type: UseCaseType = UseCaseType.INLINE_COMPLETION
 
-	private context: GhostSuggestionContext | null = null
-	private accumulatedResponse: string = ""
-	private template: HandlebarsTemplateDelegate | null = null
-
 	constructor() {
-		// No super() call needed - we're implementing the interface directly
-	}
-
-	/**
-	 * Hole Fill Strategy can handle any completion context
-	 */
-	canHandle(context: GhostSuggestionContext): boolean {
-		return context.document !== undefined
-	}
-
-	/**
-	 * Get relevant context for hole fill analysis
-	 */
-	getRelevantContext(context: GhostSuggestionContext): Partial<GhostSuggestionContext> {
-		return {
-			document: context.document,
-			range: context.range,
-		}
+		super("hole-filler.hbs")
 	}
 
 	/**
@@ -55,41 +28,6 @@ Provide only the missing code without any explanations or additional formatting.
 			return `${baseInstructions}\n\n${customInstructions}`
 		}
 		return baseInstructions
-	}
-
-	/**
-	 * Build user prompt with context for Hole Fill strategy.
-	 * Uses Handlebars template to create hole-filler formatted prompt.
-	 */
-	async getUserPrompt(context: GhostSuggestionContext): Promise<string> {
-		try {
-			this.validateContext(context)
-
-			// Load template if not already loaded
-			if (!this.template) {
-				await this.loadTemplate()
-			}
-
-			// Extract variables for template
-			const variables = this.extractVariables(context)
-
-			// Generate prompt using template
-			const prompt = this.template!(variables)
-			return prompt
-		} catch (error) {
-			console.error("Error generating Hole Fill user prompt:", error)
-			throw new Error(`Failed to generate Hole Fill prompt: ${error}`)
-		}
-	}
-
-	/**
-	 * Initialize processing for hole filler response
-	 */
-	initializeProcessing(context: GhostSuggestionContext): void {
-		this.reset()
-		this.context = context
-		this.accumulatedResponse = ""
-		this.validateContext(context)
 	}
 
 	/**
@@ -145,77 +83,6 @@ Provide only the missing code without any explanations or additional formatting.
 	}
 
 	/**
-	 * Reset parser state
-	 */
-	reset(): void {
-		this.context = null
-		this.accumulatedResponse = ""
-	}
-
-	/**
-	 * Load and compile the Handlebars template
-	 */
-	private async loadTemplate(): Promise<void> {
-		try {
-			const templatePath = path.join(__dirname, "../templates/files/hole-filler.hbs")
-			const templateContent = fs.readFileSync(templatePath, "utf8")
-			this.template = Handlebars.compile(templateContent)
-		} catch (error) {
-			console.error("Failed to load Hole Fill template:", error)
-			throw new Error(`Failed to load template: ${error}`)
-		}
-	}
-
-	/**
-	 * Extract template variables from Ghost context
-	 */
-	private extractVariables(context: GhostSuggestionContext): Record<string, string> {
-		if (!context.document || !context.range) {
-			throw new Error("Invalid context: missing document or range")
-		}
-
-		const document = context.document
-		const position = context.range.start
-		const fullText = document.getText()
-		const cursorOffset = document.offsetAt(position)
-
-		// Extract prefix (text before cursor)
-		const prefix = fullText.substring(0, cursorOffset)
-
-		// Extract suffix (text after cursor)
-		const suffix = fullText.substring(cursorOffset)
-
-		return {
-			prefix: prefix,
-			suffix: suffix,
-		}
-	}
-
-	/**
-	 * Create suggestions from completion text using consolidated utility
-	 */
-	private createSuggestionsFromCompletion(completionText: string): GhostSuggestionsState {
-		if (!this.context) {
-			return new GhostSuggestionsState()
-		}
-
-		// Use the consolidated utility (no targetLines for HoleFill - uses cursor position)
-		return createSuggestionsFromCompletion(completionText, this.context)
-	}
-
-	/**
-	 * Helper method to validate context
-	 */
-	private validateContext(context: GhostSuggestionContext): void {
-		if (!context.document) {
-			throw new Error("Document context is required")
-		}
-		if (!context.range) {
-			throw new Error("Range context is required")
-		}
-	}
-
-	/**
 	 * Clean completion text by removing any leaked XML tags
 	 */
 	private cleanCompletionText(text: string): string {
@@ -224,27 +91,5 @@ Provide only the missing code without any explanations or additional formatting.
 			.replace(/<COMPLETION>/gi, "") // Remove any standalone opening tags
 			.replace(/<\/COMPLETION>/gi, "") // Remove any standalone closing tags
 			.trim()
-	}
-
-	/**
-	 * Helper method to create empty result
-	 */
-	private createEmptyResult(): StreamingParseResult {
-		return {
-			suggestions: new GhostSuggestionsState(),
-			isComplete: false,
-			hasNewSuggestions: false,
-		}
-	}
-
-	/**
-	 * Helper method to create complete result
-	 */
-	private createCompleteResult(suggestions: GhostSuggestionsState): StreamingParseResult {
-		return {
-			suggestions,
-			isComplete: true,
-			hasNewSuggestions: suggestions.hasSuggestions(),
-		}
 	}
 }

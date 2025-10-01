@@ -12,6 +12,9 @@ import { TelemetryEventName } from "@roo-code/types"
 import { createGhostSuggestionOutcome, GhostSuggestionOutcome, PromptMetadata } from "./types/GhostSuggestionOutcome"
 import { GhostEngineContext } from "./types/platform-independent"
 import { IGhostApplicator } from "./applicators/IGhostApplicator"
+import { GhostProfile } from "./profiles/GhostProfile"
+import { VSCodeGhostAdapter } from "./adapters/VSCodeGhostAdapter"
+import { GhostCancellationError } from "./errors/GhostErrors"
 
 /**
  * Result returned by the GhostEngine containing all generated suggestions and metadata
@@ -20,7 +23,7 @@ export interface GhostEngineResult {
 	suggestions: GhostSuggestionsState
 	executionTime: number
 	rawResponse: string
-	profile: any // GhostProfile type
+	profile: GhostProfile | null
 	metadata: {
 		tokensUsed?: number
 		cost?: number
@@ -43,7 +46,7 @@ export class GhostEngine {
 	private ghostContext: GhostContext
 	private suggestionCache: GhostSuggestionCache
 	private taskId: string | null = null
-	private isRequestCancelled: boolean = false
+	private cancellationToken: AbortController | null = null
 
 	constructor(providerSettingsManager: ProviderSettingsManager, documentStore: GhostDocumentStore) {
 		this.model = new GhostModel(providerSettingsManager)
@@ -63,7 +66,18 @@ export class GhostEngine {
 	 * Cancel the current request
 	 */
 	public cancelRequest(): void {
-		this.isRequestCancelled = true
+		if (this.cancellationToken) {
+			this.cancellationToken.abort()
+		}
+	}
+
+	/**
+	 * Check if the current operation is cancelled
+	 */
+	private checkCancellation(): void {
+		if (this.cancellationToken?.signal.aborted) {
+			throw new GhostCancellationError("Operation was cancelled")
+		}
 	}
 
 	/**
@@ -112,32 +126,25 @@ export class GhostEngine {
 		applyMode: "all" | "selected" | "none" = "none",
 	): Promise<GhostEngineResult> {
 		const startTime = Date.now()
-		this.isRequestCancelled = false
+		this.cancellationToken = new AbortController()
 
-		// For backward compatibility, convert platform-independent context to GhostSuggestionContext
-		// TODO: Update GhostContext to work with platform-independent types directly
+		// Convert platform-independent context to legacy GhostSuggestionContext
 		const legacyContext: GhostSuggestionContext = {
-			document: engineContext.document as any, // Temporary cast for compatibility
+			document: engineContext.document as any, // VSCodeDocumentAdapter implements compatible interface
 			editor: undefined, // Not available in platform-independent context
-			range: engineContext.range as any, // Temporary cast for compatibility
+			range: engineContext.range as any, // GhostRange is compatible with Range interface
 			userInput: engineContext.userInput,
 		}
 
 		// Generate full context
-		const context = await this.ghostContext.generate(legacyContext)
+		const fullContext = await this.ghostContext.generate(legacyContext)
 
-		if (this.isRequestCancelled) {
-			throw new Error("Request cancelled")
-		}
+		this.checkCancellation()
 
-		// 🎯 CACHE CHECK: Check if we have cached suggestions for this context
+		// Check if we have cached suggestions for this context
 		const cachedSuggestions = this.suggestionCache.get(engineContext.document, engineContext.position)
 
 		if (cachedSuggestions) {
-			// if (!process.env.GHOST_QUIET_MODE) {
-			// console.log("🎯 Ghost Cache: Using cached suggestions - skipping API call!")
-			// }
-
 			// Apply cached suggestions if requested
 			if (applyMode !== "none") {
 				await this.applySuggestions(cachedSuggestions, engineContext.document.uri, applicator, applyMode)
@@ -169,21 +176,24 @@ export class GhostEngine {
 		this.strategy.setStrategy(strategy)
 
 		// Get strategy info using the strategy
-		const strategyInfo = await this.strategy.getStrategyInfo(context)
+		const strategyInfo = await this.strategy.getStrategyInfo(fullContext)
 
 		if (!process.env.GHOST_QUIET_MODE) {
 			console.log("📝 Ghost user prompt:", strategyInfo.userPrompt)
 		}
 
 		// Handle all suggestions using unified streaming approach
-		const result = await this.handleStreamingSuggestions(context, engineContext, strategyInfo, strategy, startTime)
+		const result = await this.handleStreamingSuggestions(
+			fullContext,
+			engineContext,
+			strategyInfo,
+			strategy,
+			startTime,
+		)
 
-		// 💾 CACHE STORAGE: Store successful suggestions in cache
+		// Store successful suggestions in cache
 		if (result.suggestions.hasSuggestions()) {
 			this.suggestionCache.store(engineContext.document, engineContext.position, result.suggestions)
-			// if (!process.env.GHOST_QUIET_MODE) {
-			// 	console.log("💾 Ghost Cache: Stored successful suggestions in cache")
-			// }
 		}
 
 		// Apply suggestions if requested
@@ -267,8 +277,10 @@ export class GhostEngine {
 
 		// Create unified callback that handles both streaming and non-streaming
 		const onChunk = (chunk: any) => {
-			if (this.isRequestCancelled) {
-				return
+			try {
+				this.checkCancellation()
+			} catch (error) {
+				return // Stop processing if cancelled
 			}
 
 			if (chunk.type === "text") {
@@ -309,10 +321,7 @@ export class GhostEngine {
 				})
 			}
 
-			if (this.isRequestCancelled) {
-				suggestions.clear()
-				throw new Error("Request cancelled")
-			}
+			this.checkCancellation()
 
 			// Finish the streaming parser to apply sanitization if needed
 			const finalParseResult = this.strategy.finishStreamingParser()
