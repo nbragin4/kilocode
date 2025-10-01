@@ -102,7 +102,9 @@ Provide only the missing code without any explanations or additional formatting.
 		const completionMatch = this.accumulatedResponse.match(/<COMPLETION>([\s\S]*?)<\/COMPLETION>/i)
 
 		if (completionMatch) {
-			const completion = completionMatch[1].trim()
+			let completion = completionMatch[1].trim()
+			// Clean up any leaked XML tags from the completion
+			completion = this.cleanCompletionText(completion)
 			if (completion) {
 				const suggestions = this.createSuggestionsFromCompletion(completion)
 				return this.createCompleteResult(suggestions)
@@ -121,7 +123,9 @@ Provide only the missing code without any explanations or additional formatting.
 		const completionMatch = this.accumulatedResponse.match(/<COMPLETION>([\s\S]*?)<\/COMPLETION>/i)
 
 		if (completionMatch) {
-			const completion = completionMatch[1].trim()
+			let completion = completionMatch[1].trim()
+			// Clean up any leaked XML tags from the completion
+			completion = this.cleanCompletionText(completion)
 			if (completion) {
 				const suggestions = this.createSuggestionsFromCompletion(completion)
 				return this.createCompleteResult(suggestions)
@@ -129,8 +133,10 @@ Provide only the missing code without any explanations or additional formatting.
 		}
 
 		// If no completion tags found, try to use the raw response
-		const trimmedResponse = this.accumulatedResponse.trim()
+		let trimmedResponse = this.accumulatedResponse.trim()
 		if (trimmedResponse) {
+			// Clean up any leaked XML tags from the raw response
+			trimmedResponse = this.cleanCompletionText(trimmedResponse)
 			const suggestions = this.createSuggestionsFromCompletion(trimmedResponse)
 			return this.createCompleteResult(suggestions)
 		}
@@ -207,6 +213,17 @@ Provide only the missing code without any explanations or additional formatting.
 		if (!context.range) {
 			throw new Error("Range context is required")
 		}
+	}
+
+	/**
+	 * Clean completion text by removing any leaked XML tags
+	 */
+	private cleanCompletionText(text: string): string {
+		return text
+			.replace(/<\/?COMPLETION>/gi, "") // Remove <COMPLETION> and </COMPLETION> tags
+			.replace(/<COMPLETION>/gi, "") // Remove any standalone opening tags
+			.replace(/<\/COMPLETION>/gi, "") // Remove any standalone closing tags
+			.trim()
 	}
 
 	/**

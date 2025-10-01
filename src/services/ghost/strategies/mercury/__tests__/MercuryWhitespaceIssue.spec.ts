@@ -34,7 +34,7 @@ describe("Mercury Whitespace Issue - Real CLI Data", () => {
 
 		// Should preserve proper indentation after stripping line numbers
 		expect(extracted).toMatchInlineSnapshot(`
-			"||
+			"<|code_to_edit|>
 			1 | class User {
 			2 |     constructor(name, age) {
 			3 |         this.name = name;
@@ -46,13 +46,13 @@ describe("Mercury Whitespace Issue - Real CLI Data", () => {
 			9 |     }
 			10 | 
 			11 |     isAdult() {
-			12 |         return this.age = 18;
+			12 |         return this.age >= 18;
 			13 |     }
 			14 | }
 			15 | 
 			16 | const user = new User('Alice', 30);
 			17 | console.log(user.getDisplayName());
-			|/|"
+			<|/code_to_edit|>"
 		`)
 	})
 

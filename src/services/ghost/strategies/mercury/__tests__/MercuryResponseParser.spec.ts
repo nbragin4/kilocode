@@ -48,11 +48,11 @@ function test() {
 
 			const extracted = parser.extractCleanCode(response)
 			expect(extracted).toMatchInlineSnapshot(`
-				"||
+				"<|code_to_edit|>
 				function test() {
 						  return true;
 				}
-				|/|"
+				<|/code_to_edit|>"
 			`)
 		})
 
@@ -65,9 +65,9 @@ const value = "test";
 
 			const extracted = parser.extractCleanCode(response)
 			expect(extracted).toMatchInlineSnapshot(`
-				"||
+				"<|code_to_edit|>
 				const value = "test";
-				|/|"
+				<|/code_to_edit|>"
 			`)
 		})
 
