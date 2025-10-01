@@ -4,11 +4,6 @@ import { ContextAnalyzer } from "./ContextAnalyzer"
 
 // Import all strategies
 import { UserRequestStrategy } from "./strategies/UserRequestStrategy"
-import { ErrorFixStrategy } from "./strategies/ErrorFixStrategy"
-import { SelectionRefactorStrategy } from "./strategies/SelectionRefactorStrategy"
-import { CommentDrivenStrategy } from "./strategies/CommentDrivenStrategy"
-import { NewLineCompletionStrategy } from "./strategies/NewLineCompletionStrategy"
-import { InlineCompletionStrategy } from "./strategies/InlineCompletionStrategy"
 import { AutoTriggerStrategy } from "./strategies/AutoTriggerStrategy"
 
 /**
@@ -24,15 +19,7 @@ export class PromptStrategyManager {
 		this.contextAnalyzer = new ContextAnalyzer()
 
 		// Register all strategies in priority order
-		this.strategies = [
-			new UserRequestStrategy(),
-			new SelectionRefactorStrategy(),
-			new NewLineCompletionStrategy(),
-			new CommentDrivenStrategy(),
-			new InlineCompletionStrategy(),
-			new AutoTriggerStrategy(),
-			new ErrorFixStrategy(), // This need to be implemented in background
-		]
+		this.strategies = [new UserRequestStrategy(), new AutoTriggerStrategy()]
 	}
 
 	/**
