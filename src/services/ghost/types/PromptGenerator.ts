@@ -11,7 +11,7 @@ export enum UseCaseType {
 /**
  * Interface for prompt strategies that generate context-aware prompts
  */
-export interface PromptStrategy {
+export interface PromptGenerator {
 	/**
 	 * Human-readable name of the strategy
 	 */
