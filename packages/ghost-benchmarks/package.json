@@ -14,9 +14,9 @@
 		"dev": "node esbuild.config.js --watch",
 		"test": "vitest",
 		"test:watch": "vitest --watch",
-		"benchmark": "node dist/benchmark-cli.cjs",
-		"benchmark:list": "node dist/benchmark-cli.cjs list",
-		"benchmark:matrix": "node dist/benchmark-cli.cjs matrix",
+		"benchmark": "npm run build; node dist/benchmark-cli.cjs",
+		"benchmark:list": "npm run build; node dist/benchmark-cli.cjs list",
+		"benchmark:matrix": "npm run build; node dist/benchmark-cli.cjs matrix",
 		"lint": "eslint src/**/*.ts",
 		"clean": "rm -rf dist"
 	},
