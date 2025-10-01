@@ -653,7 +653,7 @@ async function execRipgrep(rgPath: string, args: string[], limit: number): Promi
 
 		const rgProcess = childProcess.spawn(rgPath, args)
 		let output = ""
-		const results: string[] = []
+		let results: string[] = []
 
 		// Set timeout to avoid hanging
 		const timeoutId = setTimeout(() => {

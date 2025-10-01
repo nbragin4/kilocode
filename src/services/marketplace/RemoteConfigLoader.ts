@@ -11,11 +11,11 @@ import {
 //import { getRooCodeApiUrl } from "@roo-code/cloud" kilocode_change: use our own api
 
 const modeMarketplaceResponse = z.object({
-	items: z.array(z.any()),
+	items: z.array(modeMarketplaceItemSchema),
 })
 
 const mcpMarketplaceResponse = z.object({
-	items: z.array(z.any()),
+	items: z.array(mcpMarketplaceItemSchema),
 })
 
 export class RemoteConfigLoader {

@@ -223,7 +223,7 @@ export async function regexSearchFiles(
 function formatResults(fileResults: SearchFileResult[], cwd: string): string {
 	const groupedResults: { [key: string]: SearchResult[] } = {}
 
-	const totalResults = fileResults.reduce((sum, file) => sum + file.searchResults.length, 0)
+	let totalResults = fileResults.reduce((sum, file) => sum + file.searchResults.length, 0)
 	let output = ""
 	if (totalResults >= MAX_RESULTS) {
 		output += `Showing first ${MAX_RESULTS} of ${MAX_RESULTS}+ results. Use a more specific search if necessary.\n\n`

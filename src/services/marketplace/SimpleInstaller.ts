@@ -200,8 +200,7 @@ export class SimpleInstaller {
 		// Handle _selectedIndex from parameters if provided
 		if (options?.parameters?._selectedIndex !== undefined && Array.isArray(item.content)) {
 			const index = options.parameters._selectedIndex
-			// Type guard to ensure index is a number
-			if (typeof index === "number" && Number.isInteger(index) && index >= 0 && index < item.content.length) {
+			if (index >= 0 && index < item.content.length) {
 				// Array of McpInstallationMethod objects
 				const method = item.content[index]
 				contentToUse = method.content
