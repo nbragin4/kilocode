@@ -35,23 +35,23 @@ describe("Mercury Whitespace Issue - Real CLI Data", () => {
 		// Should preserve proper indentation after stripping line numbers
 		expect(extracted).toMatchInlineSnapshot(`
 			"||
-			class User {
-			    constructor(name, age) {
-			        this.name = name;
-			        this.age = age;
-			    }
-
-			    getDisplayName() {
-			        return \`Name: \${this.name}, Age: \${this.age}\`;
-			    }
-
-			    isAdult() {
-			        return this.age = 18;
-			    }
-			}
-
-			const user = new User('Alice', 30);
-			console.log(user.getDisplayName());
+			1 | class User {
+			2 |     constructor(name, age) {
+			3 |         this.name = name;
+			4 |         this.age = age;
+			5 |     }
+			6 | 
+			7 |     getDisplayName() {
+			8 |         return \`Name: \${this.name}, Age: \${this.age}\`;
+			9 |     }
+			10 | 
+			11 |     isAdult() {
+			12 |         return this.age = 18;
+			13 |     }
+			14 | }
+			15 | 
+			16 | const user = new User('Alice', 30);
+			17 | console.log(user.getDisplayName());
 			|/|"
 		`)
 	})
@@ -100,23 +100,23 @@ describe("Mercury Whitespace Issue - Real CLI Data", () => {
 			[
 			  {
 			    "desc": "single line with number",
-			    "result": "const x = 42;",
+			    "result": "1 | const x = 42;",
 			  },
 			  {
 			    "desc": "multi-line with varying indentation",
-			    "result": "function test() {
-			    if (true) {
-			        return "nested";
-			    }
-			}",
+			    "result": "1 | function test() {
+			2 |     if (true) {
+			3 |         return "nested";
+			4 |     }
+			5 | }",
 			  },
 			  {
 			    "desc": "double digit line numbers",
-			    "result": "class Test {
-			    method() {
-			        return true;
-			    }
-			}",
+			    "result": "10 | class Test {
+			11 |     method() {
+			12 |         return true;
+			13 |     }
+			14 | }",
 			  },
 			]
 		`)

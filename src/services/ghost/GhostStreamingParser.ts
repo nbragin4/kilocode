@@ -280,7 +280,7 @@ export class GhostStreamingParser {
 		}
 
 		// Generate diff between original and modified content
-		const relativePath = vscode.workspace.asRelativePath(document.uri, false)
+		const relativePath = vscode.workspace?.asRelativePath?.(document.uri, false) || document.uri.fsPath
 		const patch = structuredPatch(relativePath, relativePath, currentContent, modifiedContent, "", "")
 
 		// Create a suggestion file

@@ -3,9 +3,8 @@ import { GhostSuggestionContext } from "../types"
 import { StreamingParseResult } from "../GhostStreamingParser"
 import { GhostSuggestionsState } from "../GhostSuggestions"
 import { PromptStrategy, UseCaseType } from "../types/PromptStrategy"
-import { structuredPatch } from "diff"
 import { collectUnifiedMercuryContext } from "../snippets/collector"
-import { myersDiff } from "../utils/myers"
+import { createSuggestionsFromCompletion } from "../utils/diffToOperations"
 import {
 	MERCURY_RECENTLY_VIEWED_CODE_SNIPPETS_OPEN,
 	MERCURY_RECENTLY_VIEWED_CODE_SNIPPETS_CLOSE,
@@ -19,14 +18,21 @@ import {
 	MERCURY_EDIT_DIFF_HISTORY_CLOSE,
 	MERCURY_CURSOR,
 } from "../utils/ghostSuggestionConstants"
-import { PromptMetadata, UserPrompt, EditableRegionConfig } from "../types/GhostSuggestionOutcome"
-import { calculateOptimalEditableRegion, ContextExpansionOptions } from "../utils/tokenHelpers"
-import { GhostContextError, GhostStrategyError } from "../utils/result"
+import { EditableRegionCalculator, EditableRegionResult } from "./mercury/EditableRegionCalculator"
 
 /**
- * Mercury Prompt Strategy with integrated parsing.
- * Combines Mercury Coder prompting with markdown response parsing in a single strategy.
- * This eliminates the need for the DualStreamingParser format detection.
+ * Mercury Prompt Strategy - SIMPLIFIED AND CORRECT
+ *
+ * HOW IT WORKS:
+ * 1. Calculate editable region once, store content + positions
+ * 2. Send editable region content in prompt
+ * 3. Get response with modified editable region
+ * 4. Use myersDiff to diff original vs response editable region
+ * 5. Convert diff to operations using FIXED fromDiffLines logic
+ *
+ * IMPORTANT: Mercury strategy CORRECTLY returns only the editable region content,
+ * NOT the complete document. We diff that against the original editable region
+ * content that we sent in the prompt.
  */
 export class MercuryStrategy implements PromptStrategy {
 	public readonly name: string = "Mercury Coder"
@@ -34,16 +40,14 @@ export class MercuryStrategy implements PromptStrategy {
 
 	private context: GhostSuggestionContext | null = null
 	private accumulatedResponse: string = ""
-
-	constructor() {
-		// No super() call needed - we're implementing the interface directly
-	}
+	private editableRegion: EditableRegionResult | null = null // Store once, reuse everywhere
+	private editableRegionCalculator = new EditableRegionCalculator()
 
 	/**
 	 * Mercury Strategy handles ALL completion scenarios when Mercury model is available
 	 */
 	canHandle(context: GhostSuggestionContext): boolean {
-		return context.document !== undefined
+		return context.document !== undefined && context.range !== undefined
 	}
 
 	/**
@@ -67,27 +71,20 @@ export class MercuryStrategy implements PromptStrategy {
 	 * Generate system instructions for the AI model
 	 */
 	getSystemInstructions(customInstructions?: string): string {
-		const baseInstructions = `You are Mercury, an AI coding assistant by Inception Labs. Complete code within <|code_to_edit|> tags based on developer context.
+		const baseInstructions = `You are Mercury, an AI coding assistant by Inception Labs. Complete code within ${MERCURY_CODE_TO_EDIT_OPEN} tags based on developer context.
 
 # Context Available
-- recently_viewed_code_snippets: Recent code the developer viewed (oldest to newest, with line numbers in the form #| to help you understand the edit diff history)
-- current_file_content: Full file context with line numbers in the form #| for reference
+- recently_viewed_code_snippets: Recent code the developer viewed (oldest to newest)
+- current_file_content: Full file context for reference
 - edit_diff_history: Recent changes (oldest to latest, may be irrelevant)
-- <|cursor|>: Current cursor position
+- ${MERCURY_CURSOR}: Current cursor position
 
 # Task
-Predict and complete the developer's next changes in <|code_to_edit|>. Continue their current path - implementing features, improving code quality, or fixing issues. Only suggest changes you're confident about.
-
-# Process
-1. Analyze context: snippets, edit history, surrounding code, cursor location
-2. Evaluate if code needs corrections or enhancements
-3. Suggest edits aligned with developer patterns and code quality
-4. Maintain existing indentation and formatting
+Predict and complete the developer's next changes in ${MERCURY_CODE_TO_EDIT_OPEN}. Continue their current path - implementing features, improving code quality, or fixing issues. Only suggest changes you're confident about.
 
 # Output Rules
-- Return ONLY revised code between <|code_to_edit|> and <|/code_to_edit|> tags
+- Return ONLY revised code between ${MERCURY_CODE_TO_EDIT_OPEN} and ${MERCURY_CODE_TO_EDIT_CLOSE} tags
 - If no changes needed, return original code unchanged
-- There are line numbers in the form #| in the code displayed to you above, but these are just for your reference. Please do not include the numbers of the form #| in your response.
 - NEVER duplicate code outside the tags
 - Avoid reverting developer's last change unless obvious errors exist`
 
@@ -98,50 +95,56 @@ Predict and complete the developer's next changes in <|code_to_edit|>. Continue 
 	}
 
 	/**
-	 * Build Mercury Coder prompt using unified context collection.
-	 * Single context collection call eliminates duplication and improves performance.
-	 * Throws GhostContextError for unexpected failures (programming errors).
-	 * Handles expected failures gracefully within the implementation.
+	 * Build Mercury Coder prompt using unified context collection
 	 */
 	async getUserPrompt(context: GhostSuggestionContext): Promise<string> {
-		// Unexpected failure: missing required context (programming error)
 		if (!context.document) {
-			throw new GhostContextError("Document is required for Mercury Coder analysis", "MercuryStrategy")
+			throw new Error("Document is required for Mercury Coder analysis")
 		}
 		if (!context.range) {
-			throw new GhostContextError("Range is required for Mercury Coder analysis", "MercuryStrategy")
+			throw new Error("Range is required for Mercury Coder analysis")
 		}
 
 		try {
-			// UNIFIED CONTEXT COLLECTION - Single call replaces three separate systems
-			// This eliminates duplicate file reads, processing, and API calls
+			// Collect unified context
 			const workspaceDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
 			const unifiedContext = await collectUnifiedMercuryContext(context.document, context.range, workspaceDir)
 
-			// Build blocks using Continue's exact approach with unified context data
+			// Build prompt blocks
 			const recentlyViewedSnippets = unifiedContext.recentlyViewedSnippets.map((snippet) => snippet.content)
 			const recentlyViewedBlock = this.buildRecentlyViewedCodeSnippetsBlock(recentlyViewedSnippets)
-			const currentFileBlock = this.buildCurrentFileContentBlock(context, unifiedContext.editableRegion)
+			const currentFileBlock = this.buildCurrentFileContentBlock(context)
 			const editHistoryBlock = this.buildEditHistoryBlock(unifiedContext.editHistory)
 
-			// Combine all blocks into final prompt
-			const prompt = `${recentlyViewedBlock}${currentFileBlock}${editHistoryBlock}`
-
-			return prompt
+			return `${recentlyViewedBlock}${currentFileBlock}${editHistoryBlock}`
 		} catch (error) {
-			// Expected failure: context collection issues (network, file access, etc.)
 			console.error("Error generating Mercury user prompt:", error)
-			throw new GhostStrategyError(`Failed to generate Mercury prompt: ${error}`, "MercuryStrategy")
+			throw new Error(`Failed to generate Mercury prompt: ${error}`)
 		}
 	}
 
 	/**
-	 * Initialize processing for Mercury response
+	 * Initialize processing - calculate and store the editable region ONCE
 	 */
 	initializeProcessing(context: GhostSuggestionContext): void {
 		this.reset()
 		this.context = context
 		this.accumulatedResponse = ""
+
+		// CRITICAL: Calculate editable region once and store it
+		if (context.document && context.range) {
+			this.editableRegion = this.editableRegionCalculator.calculateEditableRegionContent(
+				context.document,
+				context.range,
+				512, // Max tokens for editable region
+			)
+			console.log("Mercury stored editable region:", {
+				content: JSON.stringify(this.editableRegion.content),
+				startLine: this.editableRegion.startLine,
+				endLine: this.editableRegion.endLine,
+				tokensUsed: this.editableRegion.tokensUsed,
+			})
+		}
 	}
 
 	/**
@@ -149,8 +152,6 @@ Predict and complete the developer's next changes in <|code_to_edit|>. Continue 
 	 */
 	processResponseChunk(chunk: string): StreamingParseResult {
 		this.accumulatedResponse += chunk
-
-		// Mercury doesn't need streaming - just accumulate
 		return this.createEmptyResult()
 	}
 
@@ -158,21 +159,25 @@ Predict and complete the developer's next changes in <|code_to_edit|>. Continue 
 	 * Finish processing and extract Mercury completion
 	 */
 	finishProcessing(): StreamingParseResult {
-		if (!this.context || !this.accumulatedResponse.trim()) {
+		if (!this.context || !this.accumulatedResponse.trim() || !this.editableRegion) {
 			return this.createEmptyResult()
 		}
 
 		try {
-			this.validateContext(this.context)
-
-			// Extract completion using Mercury's extractCompletion method
-			const completion = this.extractCompletion(this.accumulatedResponse)
-			if (!completion) {
+			// Extract the response editable region from Mercury response
+			const responseEditableRegion = this.extractCompletion(this.accumulatedResponse)
+			if (!responseEditableRegion) {
 				return this.createEmptyResult()
 			}
 
-			const originalContent = this.getDocumentContent(this.context)
-			const suggestions = this.generateSuggestionsFromDiff(originalContent, completion, this.context)
+			console.log("Mercury response content:", JSON.stringify(responseEditableRegion))
+
+			// CORE LOGIC: Use myersDiff to diff original vs response editable regions
+			const suggestions = this.generateSuggestionsFromMyersDiff(
+				this.editableRegion.content,
+				responseEditableRegion,
+				this.context,
+			)
 
 			return this.createCompleteResult(suggestions)
 		} catch (error) {
@@ -187,44 +192,71 @@ Predict and complete the developer's next changes in <|code_to_edit|>. Continue 
 	reset(): void {
 		this.context = null
 		this.accumulatedResponse = ""
+		this.editableRegion = null
 	}
 
 	/**
-	 * Extract completion from Mercury response (existing method)
+	 * Extract completion from Mercury response
 	 */
 	extractCompletion(response: string): string {
-		const codeMatch = response.match(/<\|code_to_edit\|>([\s\S]*?)<\|\/code_to_edit\|>/i)
+		const codeMatch = response.match(
+			new RegExp(
+				`${MERCURY_CODE_TO_EDIT_OPEN.replace(/[|]/g, "\\|")}([\\s\\S]*?)${MERCURY_CODE_TO_EDIT_CLOSE.replace(/[|]/g, "\\|")}`,
+				"i",
+			),
+		)
 		if (codeMatch) {
-			return this.stripLineNumbers(codeMatch[1])
+			return codeMatch[1].trim()
 		}
 		return ""
 	}
 
-	// === PRIVATE HELPER METHODS ===
-
 	/**
-	 * Helper method to validate context
+	 * Strip Mercury markers from response content
 	 */
-	private validateContext(context: GhostSuggestionContext): void {
-		if (!context.document) {
-			throw new Error("Document context is required")
-		}
-		if (!context.range) {
-			throw new Error("Range context is required")
-		}
+	stripMercuryMarkers(content: string): string {
+		return content
+			.replace(new RegExp(MERCURY_CODE_TO_EDIT_OPEN.replace(/[|]/g, "\\|"), "g"), "")
+			.replace(new RegExp(MERCURY_CODE_TO_EDIT_CLOSE.replace(/[|]/g, "\\|"), "g"), "")
+			.trim()
 	}
 
 	/**
-	 * Helper method to get document text content
+	 * Generate suggestions using myersDiff and FIXED diff-to-operations conversion
 	 */
-	private getDocumentContent(context: GhostSuggestionContext): string {
-		this.validateContext(context)
-		return context.document!.getText()
+	private generateSuggestionsFromMyersDiff(
+		originalEditableRegion: string,
+		responseEditableRegion: string,
+		context: GhostSuggestionContext,
+	): GhostSuggestionsState {
+		try {
+			// If content is identical, no suggestions needed
+			if (originalEditableRegion.trim() === responseEditableRegion.trim()) {
+				console.log("Content is identical, no suggestions needed")
+				return new GhostSuggestionsState()
+			}
+
+			console.log("Using consolidated createSuggestionsFromCompletion utility")
+
+			// Use the consolidated utility that works for all strategies
+			const targetLines = {
+				startLine: this.editableRegion!.startLine,
+				endLine: this.editableRegion!.endLine,
+			}
+
+			const suggestions = createSuggestionsFromCompletion(responseEditableRegion, context, targetLines)
+
+			console.log("Generated suggestions using consolidated utility")
+
+			return suggestions
+		} catch (error) {
+			console.error("Error generating suggestions:", error)
+			return new GhostSuggestionsState()
+		}
 	}
 
-	/**
-	 * Helper method to create empty result
-	 */
+	// === HELPER METHODS ===
+
 	private createEmptyResult(): StreamingParseResult {
 		return {
 			suggestions: new GhostSuggestionsState(),
@@ -233,9 +265,6 @@ Predict and complete the developer's next changes in <|code_to_edit|>. Continue 
 		}
 	}
 
-	/**
-	 * Helper method to create complete result
-	 */
 	private createCompleteResult(suggestions: GhostSuggestionsState): StreamingParseResult {
 		return {
 			suggestions,
@@ -244,385 +273,62 @@ Predict and complete the developer's next changes in <|code_to_edit|>. Continue 
 		}
 	}
 
-	// === MERCURY-SPECIFIC METHODS (keeping existing implementation) ===
-
-	/**
-	 * Determines if unique token injection is needed for this context
-	 */
-	shouldInjectUniqueToken(context: GhostSuggestionContext): boolean {
-		if (!context.document || !context.range) {
-			return false
-		}
-
-		const document = context.document
-		const position = context.range.start
-		const currentLine = document.lineAt(position.line)
-
-		// Inject token for empty lines or lines with only whitespace
-		return currentLine.text.trim() === ""
-	}
-
-	/**
-	 * Generate unique token for cursor positioning
-	 */
-	getUniqueToken(): string {
-		return MERCURY_CURSOR
-	}
-
-	/**
-	 * Build prompt metadata for Mercury strategy
-	 */
-	buildPromptMetadata(context: GhostSuggestionContext): PromptMetadata {
-		return {
-			prompt: {
-				role: "user",
-				content: "",
-			},
-			userEdits: "",
-			userExcerpts: "",
-			cursorPosition: context.range?.start || { line: 0, character: 0 },
-		}
-	}
-
-	/**
-	 * Calculate editable region for Mercury context
-	 */
-	calculateEditableRegion(
-		context: GhostSuggestionContext,
-		options: ContextExpansionOptions = {
-			maxPromptTokens: 8000,
-			prefixPercentage: 0.85,
-			maxSuffixPercentage: 0.15,
-		},
-	): EditableRegionConfig {
-		if (!context.document || !context.range) {
-			throw new Error("Document and range are required for editable region calculation")
-		}
-
-		const fileContent = context.document.getText()
-		const cursorOffset = context.document.offsetAt(context.range.start)
-		const result = calculateOptimalEditableRegion(fileContent, cursorOffset, options)
-
-		// Convert the result to EditableRegionConfig format
-		return {
-			maxTokens: options.maxPromptTokens,
-			topMargin: result.startLine,
-			bottomMargin: result.endLine,
-		}
-	}
-
-	/**
-	 * Normalize whitespace in content to prevent false diff positives from Mercury's cleanup.
-	 * Mercury often trims trailing whitespace, which shouldn't be treated as meaningful changes.
-	 */
-	private normalizeWhitespaceForDiff(content: string): string {
-		return content
-			.split("\n")
-			.map((line) => line.trimEnd()) // Remove trailing whitespace from each line
-			.join("\n")
-			.trim() // Remove leading/trailing empty lines
-	}
-
-	/**
-	 * Optimize diff operations to detect whitespace-only changes and convert them to pure additions.
-	 * This prevents Mercury's whitespace cleanup from being interpreted as deletions + additions.
-	 */
-	private optimizeDiffOperations(patch: any, originalContent: string, mercuryContent: string): any[] {
-		const operations: any[] = []
-		const originalLines = originalContent.split("\n")
-		const mercuryLines = mercuryContent.split("\n")
-
-		// Check if this is a simple addition case (Mercury adds lines without changing existing content)
-		if (mercuryLines.length > originalLines.length) {
-			// Check if first N lines are equivalent (ignoring whitespace)
-			const minLines = Math.min(originalLines.length, mercuryLines.length)
-			let firstDifferentLine = -1
-
-			for (let i = 0; i < minLines; i++) {
-				const originalNormalized = originalLines[i].trim()
-				const mercuryNormalized = mercuryLines[i].trim()
-
-				if (originalNormalized !== mercuryNormalized) {
-					firstDifferentLine = i
-					break
-				}
-			}
-
-			// If all existing lines are equivalent (ignoring whitespace), treat as pure addition
-			if (firstDifferentLine === -1 && mercuryLines.length > originalLines.length) {
-				// Add all new lines as additions
-				for (let i = originalLines.length; i < mercuryLines.length; i++) {
-					const addOp = {
-						type: "+" as const,
-						line: i,
-						oldLine: i,
-						newLine: i,
-						content: mercuryLines[i],
-					}
-					operations.push(addOp)
-				}
-
-				return operations
-			}
-		}
-
-		// Fallback to original diff processing if optimization doesn't apply
-		for (const hunk of patch.hunks) {
-			let currentOldLineNumber = hunk.oldStart
-			let currentNewLineNumber = hunk.newStart
-
-			for (const line of hunk.lines) {
-				const operationType = line.charAt(0) as "+" | "-" | " "
-				const content = line.substring(1)
-
-				switch (operationType) {
-					case "+": {
-						const addOp = {
-							type: "+" as const,
-							line: currentNewLineNumber - 1, // Convert from 1-based to 0-based
-							oldLine: currentOldLineNumber - 1,
-							newLine: currentNewLineNumber - 1,
-							content: content,
-						}
-						operations.push(addOp)
-						currentNewLineNumber++
-						break
-					}
-					case "-": {
-						const deleteOp = {
-							type: "-" as const,
-							line: currentOldLineNumber - 1, // Convert from 1-based to 0-based
-							oldLine: currentOldLineNumber - 1,
-							newLine: currentNewLineNumber - 1,
-							content: content,
-						}
-						operations.push(deleteOp)
-						currentOldLineNumber++
-						break
-					}
-					case " ": {
-						// Context line - advance both counters
-						currentOldLineNumber++
-						currentNewLineNumber++
-						break
-					}
-				}
-			}
-		}
-
-		return operations
-	}
-
-	/**
-	 * Extract code from markdown code blocks
-	 */
-	private extractCodeFromMarkdown(content: string): string {
-		// Remove markdown code block markers
-		const codeBlockMatch = content.match(/```[\w]*\n?([\s\S]*?)```/s)
-		if (codeBlockMatch) {
-			return codeBlockMatch[1]
-		}
-		return content
-	}
-
-	/**
-	 * Extract from code blocks if present, otherwise return as-is
-	 */
-	private extractFromCodeBlocks(content: string): string {
-		const extracted = this.extractCodeFromMarkdown(content)
-		return extracted || content
-	}
-
-	/**
-	 * Strip Mercury markers from content
-	 */
-	private stripMercuryMarkers(content: string): string {
-		return content
-			.replace(/<\|code_to_edit\|>/gi, "")
-			.replace(/<\|\/code_to_edit\|>/gi, "")
-			.replace(/<\|cursor\|>/gi, "")
-			.trim()
-	}
-
-	/**
-	 * Strip line numbers from Mercury response
-	 * Handles formats: "N|content", "N |content", "N | content"
-	 */
-	stripLineNumbers(content: string): string {
-		return content
-			.split("\n")
-			.map((line) => {
-				// Remove line numbers with optional space before pipe: "1|", "1 |", "10|", "10 |"
-				// Do NOT consume spaces after pipe - those are intentional indentation
-				return line.replace(/^\d+\s*\|/, "")
-			})
-			.join("\n")
-	}
-
-	/**
-	 * Generate suggestions from diff between original and Mercury content
-	 */
-	private generateSuggestionsFromDiff(
-		originalContent: string,
-		mercuryContent: string,
-		context: GhostSuggestionContext,
-	): GhostSuggestionsState {
-		const suggestions = new GhostSuggestionsState()
-
-		try {
-			// Normalize content to prevent false positives from whitespace differences
-			const normalizedOriginal = this.normalizeWhitespaceForDiff(originalContent)
-			const normalizedMercury = this.normalizeWhitespaceForDiff(mercuryContent)
-
-			// If content is identical after normalization, no suggestions needed
-			if (normalizedOriginal === normalizedMercury) {
-				return suggestions
-			}
-
-			// Create structured patch for diff analysis
-			const patch = structuredPatch("original", "mercury", originalContent, mercuryContent, "", "")
-
-			// Optimize operations to handle Mercury's whitespace cleanup patterns
-			const operations = this.optimizeDiffOperations(patch, originalContent, mercuryContent)
-
-			if (operations.length === 0) {
-				return suggestions
-			}
-
-			// Add operations to suggestions
-			const file = suggestions.addFile(context.document!.uri)
-			for (const operation of operations) {
-				file.addOperation(operation)
-			}
-
-			return suggestions
-		} catch (error) {
-			console.error("Error generating suggestions from Mercury diff:", error)
-			return suggestions
-		}
-	}
-
-	/**
-	 * Extract editable region from context
-	 */
-	private extractEditableRegion(context: GhostSuggestionContext): { start: number; end: number } {
-		if (!context.document || !context.range) {
-			return { start: 0, end: 0 }
-		}
-
-		const document = context.document
-		const position = context.range.start
-
-		// Simple implementation - expand around cursor
-		const startLine = Math.max(0, position.line - 10)
-		const endLine = Math.min(document.lineCount - 1, position.line + 10)
-
-		return { start: startLine, end: endLine }
-	}
-
-	/**
-	 * Calculate optimal editable region
-	 */
-	private calculateOptimalEditableRegion(
-		context: GhostSuggestionContext,
-		options: ContextExpansionOptions = {
-			maxPromptTokens: 8000,
-			prefixPercentage: 0.85,
-			maxSuffixPercentage: 0.15,
-		},
-	): EditableRegionConfig {
-		if (!context.document || !context.range) {
-			throw new Error("Document and range are required for editable region calculation")
-		}
-
-		const fileContent = context.document.getText()
-		const cursorOffset = context.document.offsetAt(context.range.start)
-		const result = calculateOptimalEditableRegion(fileContent, cursorOffset, options)
-
-		// Convert the result to EditableRegionConfig format
-		return {
-			maxTokens: options.maxPromptTokens,
-			topMargin: result.startLine,
-			bottomMargin: result.endLine,
-		}
-	}
-
-	/**
-	 * Count tokens in text (simplified implementation)
-	 */
-	private countTokens(text: string): number {
-		// Simple approximation: 1 token ≈ 4 characters
-		return Math.ceil(text.length / 4)
-	}
-
 	/**
 	 * Build recently viewed code snippets block
 	 */
 	private buildRecentlyViewedCodeSnippetsBlock(snippets: string[]): string {
-		if (!snippets || snippets.length === 0) {
+		if (snippets.length === 0) {
 			return ""
 		}
 
-		let block = MERCURY_RECENTLY_VIEWED_CODE_SNIPPETS_OPEN + "\n"
+		const snippetBlocks = snippets
+			.map(
+				(snippet) =>
+					`${MERCURY_RECENTLY_VIEWED_CODE_SNIPPET_OPEN}\n${snippet}\n${MERCURY_RECENTLY_VIEWED_CODE_SNIPPET_CLOSE}`,
+			)
+			.join("\n\n")
 
-		for (const snippet of snippets) {
-			block += MERCURY_RECENTLY_VIEWED_CODE_SNIPPET_OPEN + "\n"
-			block += snippet + "\n"
-			block += MERCURY_RECENTLY_VIEWED_CODE_SNIPPET_CLOSE + "\n"
-		}
-
-		block += MERCURY_RECENTLY_VIEWED_CODE_SNIPPETS_CLOSE + "\n\n"
-		return block
+		return `${MERCURY_RECENTLY_VIEWED_CODE_SNIPPETS_OPEN}\n${snippetBlocks}\n${MERCURY_RECENTLY_VIEWED_CODE_SNIPPETS_CLOSE}\n\n`
 	}
 
 	/**
-	 * Build current file content block
+	 * Build current file content block with editable region
 	 */
-	private buildCurrentFileContentBlock(context: GhostSuggestionContext, editableRegion: any): string {
-		if (!context.document) {
+	private buildCurrentFileContentBlock(context: GhostSuggestionContext): string {
+		if (!context.document || !this.editableRegion) {
 			return ""
 		}
 
 		const document = context.document
-		const content = document.getText()
+		const lines = document.getText().split("\n")
 
-		// Add line numbers and cursor marker
-		// Use #| format (matching Continue's approach) for line numbers
-		const lines = content.split("\n")
+		// Add line numbers for reference (these help Mercury understand context)
 		const numberedLines = lines.map((line, index) => {
 			const lineNumber = index + 1
-			let numberedLine = `${lineNumber} #| ${line}`
-
-			// Add cursor marker if this is the cursor line
-			if (context.range && index === context.range.start.line) {
-				const character = context.range.start.character
-				const beforeCursor = line.substring(0, character)
-				const afterCursor = line.substring(character)
-				numberedLine = `${lineNumber} #| ${beforeCursor}${MERCURY_CURSOR}${afterCursor}`
+			const isActive = context.range && index >= context.range.start.line && index <= context.range.end.line
+			if (isActive && line.trim() === "") {
+				return `${lineNumber}| ${MERCURY_CURSOR}`
 			}
-
-			return numberedLine
+			return `${lineNumber}| ${line}`
 		})
 
-		let block = MERCURY_CURRENT_FILE_CONTENT_OPEN + "\n"
-		block += numberedLines.join("\n") + "\n"
-		block += MERCURY_CURRENT_FILE_CONTENT_CLOSE + "\n\n"
+		const numberedContent = numberedLines.join("\n")
 
-		return block
+		// Use the stored editable region content
+		const editableContent = this.editableRegion.content
+
+		return `${MERCURY_CURRENT_FILE_CONTENT_OPEN}\n${numberedContent}\n${MERCURY_CURRENT_FILE_CONTENT_CLOSE}\n\n${MERCURY_CODE_TO_EDIT_OPEN}\n${editableContent}\n${MERCURY_CODE_TO_EDIT_CLOSE}\n\n`
 	}
 
 	/**
 	 * Build edit history block
 	 */
 	private buildEditHistoryBlock(editHistory: string[]): string {
-		if (!editHistory || editHistory.length === 0) {
+		if (editHistory.length === 0) {
 			return ""
 		}
 
-		let block = MERCURY_EDIT_DIFF_HISTORY_OPEN + "\n"
-		block += editHistory.join("\n\n") + "\n"
-		block += MERCURY_EDIT_DIFF_HISTORY_CLOSE + "\n\n"
-
-		return block
+		const historyContent = editHistory.join("\n\n")
+		return `${MERCURY_EDIT_DIFF_HISTORY_OPEN}\n${historyContent}\n${MERCURY_EDIT_DIFF_HISTORY_CLOSE}\n\n`
 	}
 }

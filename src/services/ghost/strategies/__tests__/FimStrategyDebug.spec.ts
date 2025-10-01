@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import { FimStrategy } from "../FimStrategy"
 import { MockTextDocument } from "../../../mocking/MockTextDocument"
 import * as vscode from "vscode"
+import { GhostSuggestionEditOperation } from "../../types"
 
 describe("FimStrategy Debug", () => {
 	it("should debug FIM strategy processing", async () => {
@@ -71,7 +72,7 @@ describe("FimStrategy Debug", () => {
 			if (files.length > 0) {
 				const operations = files[0].getAllOperations()
 				console.log("Operations:", operations.length)
-				operations.forEach((op: any, i: number) => {
+				operations.forEach((op: GhostSuggestionEditOperation, i: number) => {
 					console.log(`Operation ${i}:`, JSON.stringify(op, null, 2))
 				})
 			}

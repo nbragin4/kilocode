@@ -11,7 +11,22 @@ export const workspace = {
 		inspect: () => undefined,
 		update: () => Promise.resolve(),
 	}),
-	workspaceFolders: [],
+	// Provide a mock workspace folder for Mercury context collection
+	workspaceFolders: [
+		{
+			uri: {
+				fsPath: "/mock/workspace",
+				scheme: "file",
+				authority: "",
+				path: "/mock/workspace",
+				query: "",
+				fragment: "",
+				toString: () => "file:///mock/workspace",
+			},
+			name: "mock-workspace",
+			index: 0,
+		},
+	],
 	textDocuments: [], // Add missing textDocuments array for GhostContext.addOpenFiles()
 	onDidChangeConfiguration: () => ({ dispose: () => {} }),
 	onDidChangeWorkspaceFolders: () => ({ dispose: () => {} }),
@@ -24,6 +39,18 @@ export const workspace = {
 			uri: { fsPath: "", toString: () => "" },
 			languageId: "plaintext",
 		}), // Add missing openTextDocument method
+	fs: {
+		// Mock file system for snippet collection
+		readDirectory: () => Promise.resolve([]),
+		readFile: () => Promise.resolve(Buffer.from("")),
+		stat: () =>
+			Promise.resolve({
+				type: 1, // FileType.File
+				ctime: 0,
+				mtime: 0,
+				size: 0,
+			}),
+	},
 	asRelativePath: (uri: any, includeWorkspaceFolder?: boolean) => {
 		// Simple mock implementation for GhostStreamingParser
 		if (typeof uri === "string") {

@@ -63,6 +63,10 @@ export class GhostStrategy {
 			throw new Error("No prompt strategy set. Call setStrategy() first.")
 		}
 
+		// CRITICAL: Initialize the strategy before getting prompts
+		// This ensures Mercury strategy has its editableRegion calculated
+		this.currentStrategy.initializeProcessing(context)
+
 		const systemPrompt = await this.getSystemPrompt(context)
 		const userPrompt = await this.getSuggestionPrompt(context)
 

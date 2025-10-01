@@ -6,6 +6,7 @@ import { GhostSuggestionContext } from "../types"
 import { StreamingParseResult } from "../GhostStreamingParser"
 import { GhostSuggestionsState } from "../GhostSuggestions"
 import { PromptStrategy, UseCaseType } from "../types/PromptStrategy"
+import { createSuggestionsFromCompletion } from "../utils/diffToOperations"
 
 /**
  * Hole Fill Strategy for chat models (GPT, Claude, Granite).
@@ -185,59 +186,15 @@ Provide only the missing code without any explanations or additional formatting.
 	}
 
 	/**
-	 * Create suggestions from completion text
+	 * Create suggestions from completion text using consolidated utility
 	 */
 	private createSuggestionsFromCompletion(completionText: string): GhostSuggestionsState {
-		const suggestions = new GhostSuggestionsState()
-
-		if (!this.context?.document || !this.context?.range || !completionText) {
-			return suggestions
+		if (!this.context) {
+			return new GhostSuggestionsState()
 		}
 
-		try {
-			const document = this.context.document
-			const position = this.context.range.start
-			const line = position.line
-
-			// Get the current line to preserve indentation
-			const currentLine = document.lineAt(line)
-			const leadingWhitespace = currentLine.text.match(/^(\s*)/)?.[1] || ""
-
-			// Apply the leading whitespace to the first line of completion, keep others as-is
-			const completionLines = completionText.split("\n")
-			const indentedCompletion = completionLines
-				.map((line, index) => {
-					// First line gets the cursor position's indentation, others keep their relative indentation
-					return index === 0 ? leadingWhitespace + line : line
-				})
-				.join("\n")
-
-			// Create a replacement operation at the cursor position
-			const suggestionFile = suggestions.addFile(document.uri)
-
-			// First delete the empty line at cursor position
-			suggestionFile.addOperation({
-				type: "-",
-				line: line,
-				oldLine: line,
-				newLine: line,
-				content: "",
-			})
-
-			// Then add the completion content with proper indentation
-			suggestionFile.addOperation({
-				type: "+",
-				line: line,
-				oldLine: line,
-				newLine: line,
-				content: indentedCompletion,
-			})
-
-			return suggestions
-		} catch (error) {
-			console.error("Error creating suggestions from Hole Fill completion:", error)
-			return suggestions
-		}
+		// Use the consolidated utility (no targetLines for HoleFill - uses cursor position)
+		return createSuggestionsFromCompletion(completionText, this.context)
 	}
 
 	/**
