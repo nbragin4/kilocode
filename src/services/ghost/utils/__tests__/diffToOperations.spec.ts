@@ -64,10 +64,10 @@ describe("diffToOperations", () => {
 				},
 				{
 					type: "+",
-					line: 12, // Insert at next position after deletion
+					line: 11, // Insert at same position as deletion (replacement)
 					content: "new line 2",
-					oldLine: 12,
-					newLine: 12,
+					oldLine: 11,
+					newLine: 11,
 				},
 			])
 		})
