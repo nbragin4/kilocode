@@ -2,8 +2,6 @@ import crypto from "crypto"
 import * as vscode from "vscode"
 import { t } from "../../i18n"
 import { GhostDocumentStore } from "./GhostDocumentStore"
-import { GhostStrategy } from "./GhostStrategy"
-import { GhostModel } from "./GhostModel"
 import { VSCodeGhostApplicator } from "./applicators/VSCodeGhostApplicator"
 import { GhostDecorations } from "./GhostDecorations"
 import { GhostSuggestionContext, GroupRenderingDecision, GhostSuggestionEditOperation } from "./types"
@@ -15,24 +13,18 @@ import { GhostCodeLensProvider } from "./GhostCodeLensProvider"
 import { GhostServiceSettings, TelemetryEventName } from "@roo-code/types"
 import { ContextProxy } from "../../core/config/ContextProxy"
 import { ProviderSettingsManager } from "../../core/config/ProviderSettingsManager"
-import { GhostContext } from "./GhostContext"
 import { TelemetryService } from "@roo-code/telemetry"
 import { ClineProvider } from "../../core/webview/ClineProvider"
 import { GhostGutterAnimation } from "./GhostGutterAnimation"
 import { GhostCursor } from "./GhostCursor"
 import { GhostSuggestionPrefetchQueue } from "./GhostSuggestionPrefetchQueue"
-import {
-	GhostSuggestionOutcome,
-	PromptMetadata,
-	createGhostSuggestionOutcome,
-	Prompt,
-} from "./types/GhostSuggestionOutcome"
-import { groupDiffLines, calculateFinalCursorPosition } from "./utils/diffHelpers"
+import { GhostSuggestionOutcome, PromptMetadata, createGhostSuggestionOutcome } from "./types/GhostSuggestionOutcome"
+import { calculateFinalCursorPosition } from "./utils/diffHelpers"
 import { myersDiff } from "./utils/myers"
 import { GhostInlineProvider } from "./GhostInlineProvider"
-import { GhostSuggestionCache } from "./GhostSuggestionCache"
 import { GhostEngine } from "./GhostEngine"
 import { VSCodeGhostAdapter } from "./adapters/VSCodeGhostAdapter"
+import { GhostCancellationError, GhostErrorUtils } from "./errors/GhostErrors"
 
 export class GhostProvider {
 	private static instance: GhostProvider | null = null
@@ -53,7 +45,7 @@ export class GhostProvider {
 	private enabled: boolean = true
 	private taskId: string | null = null
 	private isProcessing: boolean = false
-	private isRequestCancelled: boolean = false
+	private cancellationToken: AbortController | null = null
 
 	// Status bar integration
 	private statusBar: GhostStatusBar | null = null
@@ -192,9 +184,18 @@ export class GhostProvider {
 		if (this.applicator.isLocked()) {
 			return
 		}
-		await this.documentStore.storeDocument({ document: event.document })
-		this.lastTextChangeTime = Date.now()
-		this.handleTypingEvent(event)
+
+		try {
+			await this.documentStore.storeDocument({ document: event.document })
+			this.lastTextChangeTime = Date.now()
+			this.handleTypingEvent(event)
+		} catch (error) {
+			if (error instanceof GhostCancellationError) {
+				// Cancellation is expected, don't log as error
+				return
+			}
+			GhostErrorUtils.logError(GhostErrorUtils.toGhostError(error, "Failed to handle document change"))
+		}
 	}
 
 	private async onDidChangeTextEditorSelection(event: vscode.TextEditorSelectionChangeEvent): Promise<void> {
@@ -269,7 +270,7 @@ export class GhostProvider {
 		// Cancel any ongoing suggestions
 		await this.cancelSuggestions()
 		this.startRequesting()
-		this.isRequestCancelled = false
+		this.cancellationToken = new AbortController()
 
 		try {
 			// Set task ID for telemetry
@@ -294,7 +295,8 @@ export class GhostProvider {
 				"none", // Don't apply yet - we need to render first
 			)
 
-			if (this.isRequestCancelled) {
+			// Check for cancellation after completion
+			if (this.cancellationToken?.signal.aborted) {
 				this.suggestions.clear()
 				await this.render()
 				return
@@ -318,7 +320,14 @@ export class GhostProvider {
 			this.selectClosestSuggestion()
 			await this.render()
 		} catch (error) {
-			console.error("Error in Ghost completion:", error)
+			if (error instanceof GhostCancellationError) {
+				// Cancellation is expected, clean up and return
+				this.suggestions.clear()
+				await this.render()
+				return
+			}
+
+			GhostErrorUtils.logError(GhostErrorUtils.toGhostError(error, "Error in Ghost completion"))
 			this.stopProcessing()
 			throw error
 		} finally {
@@ -889,7 +898,9 @@ export class GhostProvider {
 
 	public cancelRequest() {
 		this.stopProcessing()
-		this.isRequestCancelled = true
+		if (this.cancellationToken) {
+			this.cancellationToken.abort()
+		}
 		if (this.autoTriggerTimer) {
 			this.clearAutoTriggerTimer()
 		}

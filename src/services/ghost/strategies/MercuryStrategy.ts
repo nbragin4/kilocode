@@ -19,6 +19,10 @@ import {
 	MERCURY_CURSOR,
 } from "../utils/ghostSuggestionConstants"
 import { EditableRegionCalculator, EditableRegionResult } from "./mercury/EditableRegionCalculator"
+import { GhostContextError, GhostStrategyError } from "../errors/GhostErrors"
+
+// Constants
+const MAX_EDITABLE_REGION_TOKENS = 512
 
 /**
  * Mercury Prompt Strategy - SIMPLIFIED AND CORRECT
@@ -30,9 +34,6 @@ import { EditableRegionCalculator, EditableRegionResult } from "./mercury/Editab
  * 4. Use myersDiff to diff original vs response editable region
  * 5. Convert diff to operations using FIXED fromDiffLines logic
  *
- * IMPORTANT: Mercury strategy CORRECTLY returns only the editable region content,
- * NOT the complete document. We diff that against the original editable region
- * content that we sent in the prompt.
  */
 export class MercuryStrategy implements PromptStrategy {
 	public readonly name: string = "Mercury Coder"
@@ -99,10 +100,10 @@ Predict and complete the developer's next changes in ${MERCURY_CODE_TO_EDIT_OPEN
 	 */
 	async getUserPrompt(context: GhostSuggestionContext): Promise<string> {
 		if (!context.document) {
-			throw new Error("Document is required for Mercury Coder analysis")
+			throw new GhostContextError("Document is required for Mercury Coder analysis", "document")
 		}
 		if (!context.range) {
-			throw new Error("Range is required for Mercury Coder analysis")
+			throw new GhostContextError("Range is required for Mercury Coder analysis", "range")
 		}
 
 		try {
@@ -118,8 +119,11 @@ Predict and complete the developer's next changes in ${MERCURY_CODE_TO_EDIT_OPEN
 
 			return `${recentlyViewedBlock}${currentFileBlock}${editHistoryBlock}`
 		} catch (error) {
-			console.error("Error generating Mercury user prompt:", error)
-			throw new Error(`Failed to generate Mercury prompt: ${error}`)
+			throw new GhostStrategyError(
+				`Failed to generate Mercury prompt: ${error instanceof Error ? error.message : String(error)}`,
+				this.name,
+				"prompt_generation",
+			)
 		}
 	}
 
@@ -136,7 +140,7 @@ Predict and complete the developer's next changes in ${MERCURY_CODE_TO_EDIT_OPEN
 			this.editableRegion = this.editableRegionCalculator.calculateEditableRegionContent(
 				context.document,
 				context.range,
-				512, // Max tokens for editable region
+				MAX_EDITABLE_REGION_TOKENS,
 			)
 			console.log("Mercury stored editable region:", {
 				content: JSON.stringify(this.editableRegion.content),

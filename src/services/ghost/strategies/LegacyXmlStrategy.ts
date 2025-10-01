@@ -1,7 +1,7 @@
 import { GhostSuggestionContext } from "../types"
 import { StreamingParseResult, GhostStreamingParser } from "../GhostStreamingParser"
 import { PromptStrategy, UseCaseType } from "../types/PromptStrategy"
-import { GhostContextError, GhostStrategyError } from "../utils/result"
+import { GhostContextError, GhostStrategyError } from "../errors/GhostErrors"
 
 /**
  * Legacy XML Prompt Strategy using GhostStreamingParser.
@@ -114,8 +114,11 @@ Provide the completion using the XML format specified in the system instructions
 
 			return prompt
 		} catch (error) {
-			console.error("Error generating Legacy XML user prompt:", error)
-			throw new GhostContextError(`Failed to generate Legacy XML prompt: ${error}`)
+			throw new GhostStrategyError(
+				`Failed to generate Legacy XML prompt: ${error instanceof Error ? error.message : String(error)}`,
+				this.name,
+				"prompt_generation",
+			)
 		}
 	}
 
@@ -157,10 +160,10 @@ Provide the completion using the XML format specified in the system instructions
 	 */
 	private validateContext(context: GhostSuggestionContext): void {
 		if (!context.document) {
-			throw new Error("Document context is required")
+			throw new GhostContextError("Document context is required", "document")
 		}
 		if (!context.range) {
-			throw new Error("Range context is required")
+			throw new GhostContextError("Range context is required", "range")
 		}
 	}
 }
