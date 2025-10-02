@@ -1144,6 +1144,10 @@ export const webviewMessageHandler = async (
 
 			break
 		}
+		case "refreshWorkspaceFiles": {
+			await provider.workspaceTracker?.forceRefreshFileList()
+			break
+		}
 		case "openProjectMcpSettings": {
 			if (!vscode.workspace.workspaceFolders?.length) {
 				vscode.window.showErrorMessage(t("common:errors.no_workspace"))
