@@ -1,14 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { GhostProfileManager } from "../GhostProfileManager"
 import { ProviderSettingsManager } from "../../../core/config/ProviderSettingsManager"
-import { StrategyManager } from "../StrategyManager"
-
-vi.mock("../StrategyManager", () => ({
-	StrategyManager: {
-		getDefaultStrategyId: vi.fn(() => "xml-default"),
-		isValidStrategyId: vi.fn((id: string) => id === "xml-default"),
-	},
-}))
+import { DEFAULT_GHOST_STRATEGY_ID } from "../../../shared/ghost-strategies"
 
 describe("GhostProfileManager", () => {
 	let mockProviderSettingsManager: ProviderSettingsManager
@@ -42,7 +35,11 @@ describe("GhostProfileManager", () => {
 		})
 
 		it("should use default strategy when no Ghost Strategy ID provided", async () => {
-			const settings = { enableCustomProvider: true, apiConfigId: "test-api-config" }
+			const settings = {
+				enableCustomProvider: true,
+				apiConfigId: "test-api-config",
+			}
+
 			const result = await GhostProfileManager.createGhostProfileFromSettings(
 				settings,
 				mockProviderSettingsManager,
@@ -52,21 +49,45 @@ describe("GhostProfileManager", () => {
 				id: "custom",
 				name: "Custom Provider",
 				apiConfigId: "test-api-config",
-				strategyId: "xml-default",
+				strategyId: DEFAULT_GHOST_STRATEGY_ID,
 			})
-			expect(StrategyManager.getDefaultStrategyId).toHaveBeenCalled()
+		})
+
+		it("should fallback to default strategy for invalid Ghost Strategy ID", async () => {
+			const settings = {
+				enableCustomProvider: true,
+				apiConfigId: "test-api-config",
+				ghostStrategyId: "invalid-strategy",
+			}
+
+			const result = await GhostProfileManager.createGhostProfileFromSettings(
+				settings,
+				mockProviderSettingsManager,
+			)
+
+			expect(result).toEqual({
+				id: "custom",
+				name: "Custom Provider",
+				apiConfigId: "test-api-config",
+				strategyId: DEFAULT_GHOST_STRATEGY_ID,
+			})
 		})
 
 		it("should create default profile when custom provider disabled", async () => {
-			mockProviderSettingsManager.listConfig = vi.fn().mockResolvedValue([
+			const mockApiConfigs = [
 				{
 					id: "mistral-config",
 					name: "Mistral Config",
 					apiProvider: "mistral",
 				},
-			])
+			]
 
-			const settings = { enableCustomProvider: false }
+			mockProviderSettingsManager.listConfig = vi.fn().mockResolvedValue(mockApiConfigs)
+
+			const settings = {
+				enableCustomProvider: false,
+			}
+
 			const result = await GhostProfileManager.createGhostProfileFromSettings(
 				settings,
 				mockProviderSettingsManager,
@@ -76,14 +97,16 @@ describe("GhostProfileManager", () => {
 				id: "default",
 				name: "Auto-Selected (mistral)",
 				apiConfigId: "mistral-config",
-				strategyId: "xml-default",
+				strategyId: DEFAULT_GHOST_STRATEGY_ID,
 			})
 		})
 
 		it("should throw error when no valid API profiles found", async () => {
 			mockProviderSettingsManager.listConfig = vi.fn().mockResolvedValue([])
 
-			const settings = { enableCustomProvider: false }
+			const settings = {
+				enableCustomProvider: false,
+			}
 
 			await expect(
 				GhostProfileManager.createGhostProfileFromSettings(settings, mockProviderSettingsManager),

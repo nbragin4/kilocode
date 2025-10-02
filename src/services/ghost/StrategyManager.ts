@@ -1,57 +1,27 @@
-import { UseCaseType } from "./types/PromptGenerator"
 import { GhostXmlStrategy } from "./GhostXmlStrategy"
+import { AVAILABLE_GHOST_STRATEGIES, DEFAULT_GHOST_STRATEGY_ID } from "../../shared/ghost-strategies"
 
-export interface StrategyInfo {
-	id: string // Ghost Strategy ID (e.g., "xml-default")
-	name: string // Display name (e.g., "XML-based Strategy")
-	description: string // User-friendly description
-	type: UseCaseType // The use case type this strategy handles
-	createInstance: () => GhostXmlStrategy // Factory function to create strategy instance
-}
-
-export const AVAILABLE_STRATEGIES: StrategyInfo[] = [
-	{
-		id: "xml-default",
-		name: "XML-based Strategy",
-		description: "Default XML-based code generation strategy",
-		type: UseCaseType.USER_REQUEST,
-		createInstance: () => new GhostXmlStrategy({ debug: true }),
-	},
+// Static map of strategy classes by Ghost Strategy ID
+const STRATEGY_CLASS_MAP: Record<string, new (options?: { debug: boolean }) => GhostXmlStrategy> = {
+	"xml-default": GhostXmlStrategy,
 	// Future strategies will be added here
-]
-
-export const DEFAULT_STRATEGY_ID = "xml-default"
-
-export const StrategyManager = {
-	getAvailableStrategies(): StrategyInfo[] {
-		return AVAILABLE_STRATEGIES
-	},
-
-	hasMultipleStrategies(): boolean {
-		return AVAILABLE_STRATEGIES.length > 1
-	},
-
-	getStrategyById(id: string): StrategyInfo | undefined {
-		return AVAILABLE_STRATEGIES.find((s) => s.id === id)
-	},
-
-	getDefaultStrategyId(): string {
-		return DEFAULT_STRATEGY_ID
-	},
-
-	isValidStrategyId(id: string): boolean {
-		return AVAILABLE_STRATEGIES.some((s) => s.id === id)
-	},
-
-	createStrategyInstance(strategyId: string): GhostXmlStrategy {
-		const strategy = this.getStrategyById(strategyId)
-		if (strategy) {
-			return strategy.createInstance()
-		}
-
-		// Fallback to default strategy
-		console.warn(`Unknown Ghost Strategy ID: ${strategyId}, falling back to default`)
-		const defaultStrategy = this.getStrategyById(DEFAULT_STRATEGY_ID)
-		return defaultStrategy!.createInstance()
-	},
+	// "completion-based": GhostCompletionStrategy,
 }
+
+/**
+ * Create a strategy instance for the given Ghost Strategy ID
+ */
+export function createStrategyInstance(strategyId: string): GhostXmlStrategy {
+	const StrategyClass = STRATEGY_CLASS_MAP[strategyId]
+	if (StrategyClass) {
+		return new StrategyClass({ debug: true })
+	}
+
+	// Fallback to default strategy
+	console.warn(`Unknown Ghost Strategy ID: ${strategyId}, falling back to default`)
+	const DefaultStrategyClass = STRATEGY_CLASS_MAP[DEFAULT_GHOST_STRATEGY_ID]
+	return new DefaultStrategyClass({ debug: true })
+}
+
+// Re-export shared constants for convenience
+export { AVAILABLE_GHOST_STRATEGIES, DEFAULT_GHOST_STRATEGY_ID } from "../../shared/ghost-strategies"

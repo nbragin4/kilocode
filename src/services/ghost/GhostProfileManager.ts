@@ -1,6 +1,6 @@
 import { GhostProfile } from "@roo-code/types"
 import { ProviderSettingsManager } from "../../core/config/ProviderSettingsManager"
-import { StrategyManager } from "./StrategyManager"
+import { DEFAULT_GHOST_STRATEGY_ID, AVAILABLE_GHOST_STRATEGIES } from "../../shared/ghost-strategies"
 
 const SUPPORTED_DEFAULT_PROVIDERS = ["mistral", "kilocode", "openrouter"]
 
@@ -13,16 +13,15 @@ export class GhostProfileManager {
 		settings: { enableCustomProvider?: boolean; apiConfigId?: string; ghostStrategyId?: string },
 		providerSettingsManager: ProviderSettingsManager,
 	): Promise<GhostProfile> {
-		const selectedStrategyId = settings.ghostStrategyId || StrategyManager.getDefaultStrategyId()
+		const selectedStrategyId = settings.ghostStrategyId || DEFAULT_GHOST_STRATEGY_ID
 
 		// Validate the Ghost Strategy ID
-		if (!StrategyManager.isValidStrategyId(selectedStrategyId)) {
+		const isValidStrategy = AVAILABLE_GHOST_STRATEGIES.some((s) => s.id === selectedStrategyId)
+		if (!isValidStrategy) {
 			console.warn(`Invalid Ghost Strategy ID: ${selectedStrategyId}, falling back to default`)
 		}
 
-		const strategyId = StrategyManager.isValidStrategyId(selectedStrategyId)
-			? selectedStrategyId
-			: StrategyManager.getDefaultStrategyId()
+		const strategyId = isValidStrategy ? selectedStrategyId : DEFAULT_GHOST_STRATEGY_ID
 
 		// Custom mode: create profile from selected API config and Ghost Strategy ID
 		if (settings?.enableCustomProvider && settings?.apiConfigId) {

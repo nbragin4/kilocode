@@ -1,7 +1,7 @@
 import { GhostSuggestionContext } from "./types"
 import { StreamingParseResult } from "./GhostStreamingParser"
 
-export interface GhostStrategy {
+export interface IGhostStrategy {
 	/**
 	 * Get the system prompt based on context using the new strategy system
 	 * Overloaded to support both new context-based and legacy string-only calls

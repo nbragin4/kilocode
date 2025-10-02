@@ -1,29 +1,15 @@
 import { describe, it, expect } from "vitest"
-import { StrategyManager } from "../StrategyManager"
-import { UseCaseType } from "../types/PromptGenerator"
+import { createStrategyInstance } from "../StrategyManager"
+import { GhostXmlStrategy } from "../GhostXmlStrategy"
 
-describe("StrategyManager", () => {
-	describe("getAvailableStrategies", () => {
-		it("should return at least one strategy", () => {
-			const strategies = StrategyManager.getAvailableStrategies()
-			expect(strategies).toHaveLength(1)
-			expect(strategies[0]).toMatchObject({
-				id: "xml-default",
-				name: "XML-based Strategy",
-				description: "Default XML-based code generation strategy",
-				type: UseCaseType.USER_REQUEST,
-			})
-			expect(strategies[0].createInstance).toBeInstanceOf(Function)
-		})
-	})
+describe("createStrategyInstance", () => {
+	it("should create strategy instances correctly", () => {
+		// Test valid strategy creation
+		const validStrategy = createStrategyInstance("xml-default")
+		expect(validStrategy).toBeInstanceOf(GhostXmlStrategy)
 
-	describe("isValidStrategyId", () => {
-		it("should return true for valid strategy ID", () => {
-			expect(StrategyManager.isValidStrategyId("xml-default")).toBe(true)
-		})
-
-		it("should return false for invalid strategy ID", () => {
-			expect(StrategyManager.isValidStrategyId("invalid")).toBe(false)
-		})
+		// Test fallback for invalid strategy
+		const invalidStrategy = createStrategyInstance("non-existent")
+		expect(invalidStrategy).toBeInstanceOf(GhostXmlStrategy)
 	})
 })

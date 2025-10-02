@@ -21,7 +21,7 @@ import { ClineProvider } from "../../core/webview/ClineProvider"
 import { GhostGutterAnimation } from "./GhostGutterAnimation"
 import { GhostCursor } from "./GhostCursor"
 import { GhostProfileManager } from "./GhostProfileManager"
-import { StrategyManager } from "./StrategyManager"
+import { createStrategyInstance } from "./StrategyManager"
 
 export class GhostProvider {
 	private static instance: GhostProvider | null = null
@@ -132,7 +132,7 @@ export class GhostProvider {
 		this.model = await GhostModel.createFromApiConfig(this.ghostProfile.apiConfigId, this.providerSettingsManager)
 
 		// Create strategy based on ghost profile's Ghost Strategy ID
-		this.strategy = StrategyManager.createStrategyInstance(this.ghostProfile.strategyId)
+		this.strategy = createStrategyInstance(this.ghostProfile.strategyId)
 
 		this.cursorAnimation.updateSettings(this.settings || undefined)
 		await this.updateGlobalContext()
