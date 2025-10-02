@@ -8,7 +8,7 @@ import { useExtensionState } from "../../../context/ExtensionStateContext"
 import { SectionHeader } from "../../settings/SectionHeader"
 import { Section } from "../../settings/Section"
 import { GhostServiceSettings } from "@roo-code/types"
-import { AVAILABLE_GHOST_STRATEGIES } from "../../../../src/shared/ghost-strategies"
+import { AVAILABLE_GHOST_STRATEGIES } from "@roo/ghost-strategies"
 import { SetCachedStateField } from "../../settings/types"
 import {
 	Select,
