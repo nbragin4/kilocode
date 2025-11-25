@@ -4,6 +4,8 @@ import { t } from "../../i18n"
 interface GhostStatusBarStateProps {
 	enabled?: boolean
 	model?: string
+	provider?: string
+	profileName?: string | null
 	hasValidToken?: boolean
 	totalSessionCost?: number
 	lastCompletionCost?: number
@@ -13,6 +15,8 @@ export class GhostStatusBar {
 	statusBar: vscode.StatusBarItem
 	enabled: boolean
 	model: string
+	provider: string
+	profileName: string | null
 	hasValidToken: boolean
 	totalSessionCost?: number
 	lastCompletionCost?: number
@@ -21,6 +25,8 @@ export class GhostStatusBar {
 		this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
 		this.enabled = params.enabled || false
 		this.model = params.model || "default"
+		this.provider = params.provider || "default"
+		this.profileName = params.profileName || null
 		this.hasValidToken = params.hasValidToken || false
 		this.totalSessionCost = params.totalSessionCost
 		this.lastCompletionCost = params.lastCompletionCost
@@ -55,6 +61,8 @@ export class GhostStatusBar {
 	public update(params: GhostStatusBarStateProps) {
 		this.enabled = params.enabled !== undefined ? params.enabled : this.enabled
 		this.model = params.model !== undefined ? params.model : this.model
+		this.provider = params.provider !== undefined ? params.provider : this.provider
+		this.profileName = params.profileName !== undefined ? params.profileName : this.profileName
 		this.hasValidToken = params.hasValidToken !== undefined ? params.hasValidToken : this.hasValidToken
 		this.totalSessionCost = params.totalSessionCost !== undefined ? params.totalSessionCost : this.totalSessionCost
 		this.lastCompletionCost =
@@ -63,12 +71,6 @@ export class GhostStatusBar {
 		this.updateVisible(this.enabled)
 		if (this.enabled) this.render()
 	}
-
-	// TODO: Bring back paused state in the future
-	// private renderPaused() {
-	// 	this.statusBar.text = t("kilocode:ghost.statusBar.disabled")
-	// 	this.statusBar.tooltip = t("kilocode:ghost.statusBar.tooltip.disabled")
-	// }
 
 	private renderTokenError() {
 		this.statusBar.text = t("kilocode:ghost.statusBar.warning")
@@ -83,6 +85,8 @@ export class GhostStatusBar {
 ${t("kilocode:ghost.statusBar.tooltip.basic")}
 • ${t("kilocode:ghost.statusBar.tooltip.lastCompletion")} $${lastCompletionCostFormatted}
 • ${t("kilocode:ghost.statusBar.tooltip.sessionTotal")} ${totalCostFormatted}
+• ${t("kilocode:ghost.statusBar.tooltip.profile")}${this.profileName}
+• ${t("kilocode:ghost.statusBar.tooltip.provider")} ${this.provider}
 • ${t("kilocode:ghost.statusBar.tooltip.model")} ${this.model}\
 `
 	}

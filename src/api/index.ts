@@ -1,4 +1,5 @@
 import { Anthropic } from "@anthropic-ai/sdk"
+import OpenAI from "openai" // kilocode_change
 
 import type { ProviderSettings, ModelInfo } from "@roo-code/types"
 
@@ -32,6 +33,9 @@ import {
 	// kilocode_change start
 	VirtualQuotaFallbackHandler,
 	GeminiCliHandler,
+	SyntheticHandler,
+	OVHcloudAIEndpointsHandler,
+	MiniMaxAnthropicHandler,
 	// kilocode_change end
 	ClaudeCodeHandler,
 	QwenCodeHandler,
@@ -44,9 +48,11 @@ import {
 	FeatherlessHandler,
 	VercelAiGatewayHandler,
 	DeepInfraHandler,
+	// MiniMaxHandler, // kilocode_change
 } from "./providers"
 // kilocode_change start
 import { KilocodeOpenrouterHandler } from "./providers/kilocode-openrouter"
+import { InceptionLabsHandler } from "./providers/inception"
 // kilocode_change end
 import { NativeOllamaHandler } from "./providers/native-ollama"
 
@@ -72,6 +78,19 @@ export interface ApiHandlerCreateMessageMetadata {
 	 * @default true
 	 */
 	store?: boolean
+	// kilocode_change start
+	/**
+	 * Array of allowed tools for the current mode when using JSON tool style.
+	 * This contains the full tool definitions (function schemas) that the model can use.
+	 */
+	allowedTools?: OpenAI.Chat.ChatCompletionTool[]
+	/**
+	 * KiloCode-specific: The project ID for the current workspace (derived from git origin remote).
+	 * Used by KiloCodeOpenrouterHandler for backend tracking. Ignored by other providers.
+	 * @kilocode-only
+	 */
+	projectId?: string
+	// kilocode_change end
 }
 
 export interface ApiHandler {
@@ -92,6 +111,8 @@ export interface ApiHandler {
 	 * @returns A promise resolving to the token count
 	 */
 	countTokens(content: Array<Anthropic.Messages.ContentBlockParam>): Promise<number>
+
+	contextWindow?: number // kilocode_change: Add contextWindow property for virtual quota fallback
 }
 
 export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
@@ -100,8 +121,6 @@ export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
 	switch (apiProvider) {
 		// kilocode_change start
 		case "kilocode":
-			return new KilocodeOpenrouterHandler(options)
-		case "kilocode-openrouter": // temp typing fix
 			return new KilocodeOpenrouterHandler(options)
 		case "gemini-cli":
 			return new GeminiCliHandler(options)
@@ -172,6 +191,14 @@ export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
 			return new ZAiHandler(options)
 		case "fireworks":
 			return new FireworksHandler(options)
+		// kilocode_change start
+		case "synthetic":
+			return new SyntheticHandler(options)
+		case "inception":
+			return new InceptionLabsHandler(options)
+		case "ovhcloud":
+			return new OVHcloudAIEndpointsHandler(options)
+		// kilocode_change end
 		case "io-intelligence":
 			return new IOIntelligenceHandler(options)
 		case "roo":
@@ -182,6 +209,8 @@ export function buildApiHandler(configuration: ProviderSettings): ApiHandler {
 			return new FeatherlessHandler(options)
 		case "vercel-ai-gateway":
 			return new VercelAiGatewayHandler(options)
+		case "minimax":
+			return new MiniMaxAnthropicHandler(options) // kilocode_change: anthropic
 		default:
 			apiProvider satisfies "gemini-cli" | undefined
 			return new AnthropicHandler(options)

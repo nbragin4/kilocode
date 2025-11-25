@@ -24,7 +24,7 @@ describe("Model Validation Functions", () => {
 				outputPrice: 5.0,
 			},
 		},
-		"kilocode-openrouter": {
+		kilocode: {
 			"valid-model": {
 				maxTokens: 8192,
 				contextWindow: 200000,
@@ -61,6 +61,14 @@ describe("Model Validation Functions", () => {
 		"io-intelligence": {},
 		"vercel-ai-gateway": {},
 		huggingface: {},
+		// kilocode_change start
+		ovhcloud: {},
+		gemini: {},
+		inception: {},
+		synthetic: {},
+		// kilocode_change end
+		roo: {},
+		chutes: {},
 	}
 
 	const allowAllOrganization: OrganizationAllowList = {

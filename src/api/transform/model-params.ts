@@ -97,7 +97,7 @@ export function getModelParams({
 	let temperature = customTemperature ?? defaultTemperature
 	let reasoningBudget: ModelParams["reasoningBudget"] = undefined
 	let reasoningEffort: ModelParams["reasoningEffort"] = undefined
-	let verbosity: VerbosityLevel | undefined = customVerbosity
+	let verbosity: VerbosityLevel | undefined = model.supportsVerbosity ? customVerbosity : undefined // kilocode_change
 
 	if (shouldUseReasoningBudget({ model, settings })) {
 		// Check if this is a Gemini 2.5 Pro model
@@ -188,10 +188,6 @@ function shouldDisableReasoning(modelId: string, reasoningEffort: ReasoningEffor
 		modelId.startsWith("deepseek/deepseek-chat-v3.1") ||
 		modelId.startsWith("x-ai/grok-4-fast") ||
 		modelId.startsWith("z-ai/glm-4.6")
-	return (
-		(supportsReasoningToggle && reasoningEffort === "minimal") ||
-		// 2025-10-01: GLM-4.6 seems completely broken with reasoning (it outputs tool calls as reasoning)
-		modelId.startsWith("z-ai/glm-4.6")
-	)
+	return supportsReasoningToggle && reasoningEffort === "minimal"
 }
 // kilocode_change end
